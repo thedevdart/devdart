@@ -1,0 +1,145 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<div id="env-data" class="hidden"
+     data-csrf="{{ csrf_token }}"
+     data-save-url="{% url 'api_save_target_report' %}"
+     data-delete-url="{% url 'api_delete_target_report' %}"
+     data-run-url="{% url 'api_run_target_report' %}"
+     data-export-base="/inventory/custom-reports/target/export/">
+</div>
+
+<script id="centers-data" type="application/json">{{ centers_json|safe }}</script>
+<script id="center-items-data" type="application/json">{{ center_items_json|safe }}</script>
+<script id="saved-reports-data" type="application/json">{{ saved_reports_json|safe }}</script>
+
+<div class="max-w-[100rem] mx-auto py-4 font-sans relative flex flex-col h-[calc(100vh-2rem)] min-h-[700px]">
+
+    <div id="toast" class="fixed bottom-5 right-5 z-[150] hidden transition-all duration-300 transform translate-y-full opacity-0">
+        <div class="bg-brand text-white px-5 py-4 rounded-md shadow-2xl flex items-start gap-4 min-w-[320px] max-w-sm border-l-4 border-red-500">
+            <i id="toast-icon" class="fa-solid fa-xmark text-red-500 text-lg mt-0.5"></i>
+            <div class="flex-1">
+                <h4 id="toast-title" class="font-black text-[11px] text-slate-50 uppercase tracking-widest">Error</h4>
+                <p id="toast-msg" class="text-xs font-medium text-slate-300 mt-1"></p>
+            </div>
+        </div>
+    </div>
+
+   <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4 shrink-0">
+        <div>
+            <a href="{% url 'custom_reports_landing' %}" class="text-slate-500 dark:text-slate-400 hover:text-primary text-[10px] font-black uppercase tracking-widest mb-3 inline-flex items-center gap-2 transition-colors">
+                <i class="fa-solid fa-arrow-left"></i> Back to Custom Reports
+            </a>
+            <h1 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase flex items-center gap-3 font-heading">
+                <i class="fa-solid fa-bullseye text-primary"></i>
+                Target Reports
+            </h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-bold mt-2 uppercase tracking-widest">Configure and run specific center-wise target vs actuals tracking</p>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+     
+            
+            <div id="report-selector" class="relative custom-select z-30 min-w-[250px]">
+                <div class="select-trigger w-full px-5 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md cursor-pointer transition-all flex items-center justify-between shadow-sm hover:border-primary">
+                    <span class="select-value flex-1"><div class="option-content"><span class="text-[11px] font-black uppercase tracking-widest text-slate-400">-- Create New Report --</span></div></span>
+                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform"></i>
+                </div>
+                <div id="saved-reports-dropdown-list" class="select-dropdown absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-2xl z-50 hidden opacity-0 transition-opacity duration-200 py-1">
+                </div>
+            </div>
+
+            <button id="deleteBtn" onclick="window.TargetReportApp.openDeleteConfirm()" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-red-500 hover:bg-red-50 hover:border-red-200 dark:hover:bg-red-500/10 px-4 py-3.5 rounded-md font-black transition-colors shadow-sm h-full">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
+        
+        <div class="lg:w-1/3 flex flex-col bg-white dark:bg-slate-900 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden h-full transition-colors duration-300">
+            
+            <div class="p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col gap-4 shrink-0">
+                <div class="flex justify-between items-center gap-4">
+                    <div class="flex-1 relative">
+                        <i class="fa-solid fa-pen absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="text" id="reportNameInput" oninput="window.TargetReportApp.updateName(this.value)" placeholder="REPORT NAME..." class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 pl-10 pr-4 py-2.5 rounded-sm font-black text-[11px] uppercase tracking-widest outline-none text-slate-800 dark:text-white placeholder-slate-400 shadow-inner focus:ring-1 focus:ring-accent transition-all">
+                    </div>
+                    <button id="saveConfigBtn" onclick="window.TargetReportApp.saveConfig()" class="text-[11px] uppercase tracking-widest bg-accent hover:bg-accent/90 text-brand px-5 py-3 rounded-md font-black transition-colors shrink-0 shadow-sm flex items-center gap-2 active:scale-95 border border-transparent h-[42px]">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Config
+                    </button>
+                </div>
+                
+                <button onclick="window.TargetReportApp.addCol()" class="w-full py-3.5 border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-md text-slate-500 dark:text-slate-400 font-black text-[11px] uppercase tracking-widest hover:border-accent hover:text-accent transition-all flex items-center justify-center gap-2 active:scale-95 shadow-sm">
+                    <i class="fa-solid fa-plus"></i> Add Custom Column
+                </button>
+            </div>
+            
+            <div id="columns-container" class="flex-1 overflow-y-auto p-5 bg-slate-50/50 dark:bg-slate-950/50 custom-scrollbar">
+                </div>
+        </div>
+
+        <div class="lg:w-2/3 flex flex-col bg-white dark:bg-slate-900 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden h-full transition-colors duration-300">
+            
+            <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center bg-slate-50 dark:bg-slate-950 gap-4 shrink-0">
+                <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                    <div class="relative flex items-center group bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-sm px-4 py-2.5 shadow-inner hover:border-accent transition-colors cursor-pointer" onclick="document.getElementById('reportTargetDate')._flatpickr.open()">
+                        <i class="fa-solid fa-calendar-day text-accent mr-3 group-hover:scale-110 transition-transform"></i>
+                        <input type="text" id="reportTargetDate" placeholder="TARGET DATE..." class="bg-transparent border-none text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 w-32 outline-none focus:ring-0 cursor-pointer placeholder-slate-400 p-0">
+                    </div>
+                    <button id="runReportBtn" onclick="window.TargetReportApp.runReport()" class="flex-1 sm:flex-none bg-accent hover:bg-accent/90 text-brand px-6 py-2.5 rounded-md text-[11px] uppercase tracking-widest font-black shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95 border border-transparent h-[42px]">
+                        <i class="fa-solid fa-bolt"></i> Run Report
+                    </button>
+                </div>
+                
+                <button id="exportBtn" onclick="window.TargetReportApp.downloadExcel()" class="hidden flex-1 sm:flex-none bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 px-6 py-2.5 rounded-md text-[11px] uppercase tracking-widest font-black shadow-sm hover:border-accent hover:text-accent flex items-center justify-center gap-2 transition-all active:scale-95 h-[42px]">
+                    <i class="fa-solid fa-file-excel text-accent"></i> Export
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-auto custom-scrollbar p-0 bg-slate-50/50 dark:bg-slate-950/50">
+                
+                <div id="empty-state" class="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 p-8 text-center">
+                    <i class="fa-solid fa-table-list text-5xl mb-6 opacity-30"></i>
+                    <h3 class="text-xl font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 mb-2">Ready to compile</h3>
+                    <p class="text-sm font-bold">Select a saved config, pick a target date, and click Run Report</p>
+                </div>
+                
+                <div id="report-wrapper" class="hidden">
+                    <table class="w-full text-sm text-left border-collapse whitespace-nowrap bg-white dark:bg-slate-900 min-w-[800px]">
+                        <thead class="bg-accent text-brand uppercase tracking-widest font-black sticky top-0 z-10 shadow-md">
+                            <tr id="report-dynamic-headers">
+                            </tr>
+                        </thead>
+                        <tbody id="report-tbody" class="divide-y divide-slate-100 dark:divide-slate-800">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="deleteConfirmModal" class="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm hidden transition-opacity duration-300">
+    <div class="bg-white dark:bg-slate-900 rounded-md shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md p-8 transform scale-95 opacity-0 transition-all duration-300">
+        <div class="flex items-center gap-4 mb-4">
+            <div class="w-12 h-12 rounded-full bg-red-50 dark:bg-red-500/10 flex items-center justify-center text-red-500 shrink-0">
+                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+            </div>
+            <h3 class="text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase">Delete Report</h3>
+        </div>
+        <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-8 uppercase tracking-widest leading-relaxed">Are you sure you want to permanently delete this configuration? This cannot be undone</p>
+        
+        <div class="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-800">
+            <button onclick="window.TargetReportApp.closeDeleteConfirm()" class="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-md font-black transition-colors text-[11px] uppercase tracking-widest">Cancel</button>
+            <button id="confirmDeleteBtn" onclick="window.TargetReportApp.confirmDelete()" class="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-md font-black transition-colors text-[11px] uppercase tracking-widest shadow-sm active:scale-95 flex items-center justify-center gap-2">Delete Forever</button>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'inventory/js/target_report.js' %}?v=1.2"></script>
+{% endblock %}

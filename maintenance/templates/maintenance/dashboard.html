@@ -1,0 +1,581 @@
+{% extends "maintenance/base.html" %}
+
+{% block content %}
+<style>
+    .dashboard-hero {
+        margin-bottom: 1.75rem;
+    }
+
+    .hero-side-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 1.6rem;
+        padding: 1.6rem;
+        box-shadow: var(--shadow-md);
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    .hero-side-title {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.4rem;
+    }
+
+    .search-card {
+        background: var(--bg-muted);
+        border: 1px solid var(--border-color);
+        border-radius: 1.2rem;
+        padding: 0.9rem 1rem;
+    }
+
+    .search-card .input-group-text,
+    .search-card .form-control {
+        background: transparent;
+        border: none;
+        box-shadow: none;
+    }
+
+    .search-card .form-control {
+        color: var(--text-main);
+        font-size: 1rem;
+        padding: 0.35rem 0.25rem;
+    }
+
+    .search-card .input-group-text {
+        padding-left: 0.25rem;
+        color: var(--primary);
+    }
+
+    .dashboard-fab {
+        position: fixed;
+        right: 28px;
+        bottom: 28px;
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+        color: #fff;
+        font-size: 1.4rem;
+        box-shadow: 0 20px 40px rgba(109, 94, 252, 0.35);
+        z-index: 1200;
+        animation: fabFloat 2.4s ease-in-out infinite;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .dashboard-fab:hover {
+        color: #fff;
+        transform: translateY(-3px) scale(1.04);
+        box-shadow: 0 26px 44px rgba(109, 94, 252, 0.42);
+    }
+
+    @keyframes fabFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-6px); }
+    }
+
+    .mini-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.9rem;
+    }
+
+    .mini-stat {
+        padding: 1rem;
+        border-radius: 1.2rem;
+        background: var(--bg-muted);
+        border: 1px solid var(--border-color);
+    }
+
+    .mini-stat strong {
+        display: block;
+        font-size: 1.25rem;
+        color: var(--text-main);
+    }
+
+    .mini-stat span {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.75rem;
+    }
+
+    .stat-card {
+        background: var(--bg-card);
+        border-radius: 1.4rem;
+        padding: 1.35rem;
+        border: 1px solid var(--border-color);
+        box-shadow: var(--shadow-sm);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--primary), rgba(34,197,94,0.9));
+    }
+
+    .stat-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .stat-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 1rem;
+        display: grid;
+        place-items: center;
+        font-size: 1.1rem;
+    }
+
+    .icon-primary { background: rgba(109, 94, 252, 0.12); color: var(--primary); }
+    .icon-danger { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+    .icon-success { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
+    .icon-warning { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+    .value-warning { color: #d97706; }
+    .value-success { color: #16a34a; }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 800;
+        line-height: 1;
+        color: var(--text-main);
+        margin-bottom: 0.35rem;
+    }
+
+    .stat-label {
+        color: var(--text-muted);
+        font-size: 0.88rem;
+        font-weight: 600;
+    }
+
+    .stat-foot {
+        color: var(--text-soft);
+        font-size: 0.84rem;
+    }
+
+    .section-block {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 1.5rem;
+        box-shadow: var(--shadow-sm);
+        padding: 1.35rem;
+        height: 100%;
+    }
+
+    .section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.2rem;
+    }
+
+    .section-title {
+        font-size: 1.02rem;
+        font-weight: 800;
+        margin: 0;
+        color: var(--text-main);
+    }
+
+    .section-subtitle {
+        color: var(--text-muted);
+        font-size: 0.86rem;
+        margin: 0.2rem 0 0;
+    }
+
+    .section-chip {
+        padding: 0.45rem 0.75rem;
+        border-radius: 999px;
+        background: var(--primary-soft);
+        color: var(--primary);
+        font-size: 0.76rem;
+        font-weight: 700;
+    }
+
+    .alert-list {
+        display: grid;
+        gap: 0.9rem;
+    }
+
+    .asset-item {
+        background: var(--bg-muted);
+        border: 1px solid var(--border-color);
+        border-radius: 1.15rem;
+        padding: 1rem 1.05rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .asset-item.overdue {
+        border-color: rgba(239, 68, 68, 0.28);
+        box-shadow: inset 4px 0 0 #ef4444;
+    }
+
+    .asset-item.critical {
+        border-color: rgba(245, 158, 11, 0.28);
+        box-shadow: inset 4px 0 0 #f59e0b;
+    }
+
+    .asset-info h5 {
+        margin: 0 0 0.35rem;
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+
+    .asset-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        color: var(--text-muted);
+        font-size: 0.83rem;
+    }
+
+    .status-badge {
+        padding: 0.35rem 0.7rem;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .badge-overdue {
+        background: var(--accent-danger-bg);
+        color: var(--accent-danger-text);
+    }
+
+    .badge-critical {
+        background: var(--accent-warning-bg);
+        color: var(--accent-warning-text);
+    }
+
+    .btn-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        border-radius: 0.9rem;
+        padding: 0.78rem 0.95rem;
+        font-weight: 700;
+        font-size: 0.84rem;
+        text-decoration: none;
+        border: 1px solid transparent;
+        transition: 0.2s ease;
+    }
+
+    .btn-action:hover {
+        transform: translateY(-1px);
+    }
+
+    .btn-action-danger {
+        background: rgba(239, 68, 68, 0.08);
+        border-color: rgba(239, 68, 68, 0.16);
+        color: #dc2626;
+    }
+
+    .btn-action-warning {
+        background: rgba(245, 158, 11, 0.12);
+        border-color: rgba(245, 158, 11, 0.18);
+        color: #b45309;
+    }
+
+    .status-list {
+        display: grid;
+        gap: 0.85rem;
+    }
+
+    .status-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.95rem 1rem;
+        border-radius: 1rem;
+        border: 1px solid var(--border-color);
+        background: var(--bg-muted);
+    }
+
+    .status-row h6 {
+        margin: 0 0 0.2rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+
+    .status-row small {
+        color: var(--text-muted);
+    }
+
+    .status-pill {
+        padding: 0.42rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.74rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .pill-upcoming {
+        background: var(--accent-warning-bg);
+        color: var(--accent-warning-text);
+    }
+
+    .pill-healthy {
+        background: var(--accent-success-bg);
+        color: var(--accent-success-text);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2.2rem 1.25rem;
+        color: var(--text-muted);
+        background: var(--bg-muted);
+        border-radius: 1.2rem;
+        border: 1px dashed var(--border-color);
+    }
+
+    @media (max-width: 1199px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 991px) {
+        .row.g-4 {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .section-head,
+        .asset-item,
+        .status-row {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .dashboard-fab {
+            right: 18px;
+            bottom: 18px;
+            width: 58px;
+            height: 58px;
+        }
+    }
+</style>
+
+<div class="dashboard-hero animate-slide-up">
+    <div class="hero-side-card">
+        <div>
+            <div class="hero-side-title">Quick search</div>
+            <form method="GET" class="search-card">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search text-muted"></i></span>
+                    <input type="text" name="q" class="form-control" placeholder="Search assets, location, category..." value="{{ query|default:'' }}">
+                </div>
+            </form>
+        </div>
+
+        <div>
+            <div class="hero-side-title">Operational focus</div>
+            <div class="mini-stat-grid">
+                <div class="mini-stat">
+                    <strong>{{ total_needs_attention }}</strong>
+                    <span>Assets needing action</span>
+                </div>
+                <div class="mini-stat">
+                    <strong>{{ readiness_pct }}%</strong>
+                    <span>Readiness level</span>
+                </div>
+                <div class="mini-stat">
+                    <strong>{{ overdue|length }}</strong>
+                    <span>Overdue right now</span>
+                </div>
+                <div class="mini-stat">
+                    <strong>{{ critical|length }}</strong>
+                    <span>Critical this week</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<a href="{% url 'maintenance:add_new_asset' %}" class="dashboard-fab" title="Add Asset" aria-label="Add Asset">
+    <i class="fas fa-plus"></i>
+</a>
+
+<div class="stats-grid animate-slide-up delay-100">
+    <div class="stat-card">
+        <div class="stat-top">
+            <div>
+                <div class="stat-value">{{ total_assets }}</div>
+                <div class="stat-label">Total Assets</div>
+            </div>
+            <div class="stat-icon icon-primary">
+                <i class="fas fa-cubes"></i>
+            </div>
+        </div>
+        <div class="stat-foot">Assets actively being tracked in the maintenance workspace.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-top">
+            <div>
+                <div class="stat-value" style="color:#dc2626;">{{ total_needs_attention }}</div>
+                <div class="stat-label">Needs Attention</div>
+            </div>
+            <div class="stat-icon icon-danger">
+                <i class="fas fa-triangle-exclamation"></i>
+            </div>
+        </div>
+        <div class="stat-foot">Overdue items and records due within the immediate attention window.</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-top">
+            <div>
+                <div class="stat-value {% if readiness_pct < 80 %}value-warning{% else %}value-success{% endif %}">{{ readiness_pct }}%</div>
+                <div class="stat-label">Compliance Rate</div>
+            </div>
+            <div class="stat-icon {% if readiness_pct < 80 %}icon-warning{% else %}icon-success{% endif %}">
+                <i class="fas fa-chart-pie"></i>
+            </div>
+        </div>
+        <div class="progress" style="height: 6px; border-radius: 999px; background: rgba(148,163,184,0.18);">
+            <div class="progress-bar {% if readiness_pct < 80 %}bg-warning{% else %}bg-success{% endif %}" role="progressbar" style="width: {{ readiness_pct }}%"></div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-top">
+            <div>
+                <div class="stat-value">{{ upcoming|length }}</div>
+                <div class="stat-label">Upcoming in 30 Days</div>
+            </div>
+            <div class="stat-icon icon-warning">
+                <i class="fas fa-calendar-days"></i>
+            </div>
+        </div>
+        <div class="stat-foot">Planned preventive maintenance events approaching soon.</div>
+    </div>
+</div>
+
+<div class="row g-4 animate-slide-up delay-200">
+    <div class="col-lg-7" id="priority-alerts">
+        <div class="section-block">
+            <div class="section-head">
+                <div>
+                    <h3 class="section-title">Priority alerts</h3>
+                    <p class="section-subtitle">Assets that need service action first.</p>
+                </div>
+                <span class="section-chip">{{ total_needs_attention }} active alerts</span>
+            </div>
+
+            {% if not overdue and not critical %}
+                <div class="empty-state">
+                    <i class="fas fa-check-circle fa-2x mb-3" style="color: var(--accent-success-text);"></i>
+                    <p class="mb-0">No immediate actions required. Everything is currently on schedule.</p>
+                </div>
+            {% else %}
+                <div class="alert-list">
+                    {% for item in overdue %}
+                        <div class="asset-item overdue">
+                            <div class="asset-info">
+                                <h5>{{ item.obj.name }}</h5>
+                                <div class="asset-meta">
+                                    <span class="status-badge badge-overdue">Overdue by {{ item.abs_days }} days</span>
+                                    <span><i class="far fa-folder-open me-1"></i> {{ item.obj.get_category_display }}</span>
+                                    <span><i class="fas fa-location-dot me-1"></i> {{ item.obj.location|default:"No location" }}</span>
+                                </div>
+                            </div>
+                            <a href="{% url 'maintenance:update_service' item.obj.id %}" class="btn-action btn-action-danger">
+                                <i class="fas fa-wrench"></i> Log Service
+                            </a>
+                        </div>
+                    {% endfor %}
+
+                    {% for item in critical %}
+                        <div class="asset-item critical">
+                            <div class="asset-info">
+                                <h5>{{ item.obj.name }}</h5>
+                                <div class="asset-meta">
+                                    <span class="status-badge badge-critical">Due in {{ item.days }} days</span>
+                                    <span><i class="far fa-folder-open me-1"></i> {{ item.obj.get_category_display }}</span>
+                                    <span><i class="fas fa-location-dot me-1"></i> {{ item.obj.location|default:"No location" }}</span>
+                                </div>
+                            </div>
+                            <a href="{% url 'maintenance:update_service' item.obj.id %}" class="btn-action btn-action-warning">
+                                <i class="fas fa-calendar-check"></i> Schedule Service
+                            </a>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="section-block">
+            <div class="section-head">
+                <div>
+                    <h3 class="section-title">Upcoming </h3>
+                    <p class="section-subtitle">Upcoming due dates and healthy equipment overview.</p>
+                </div>
+                
+            </div>
+
+            <div class="status-list">
+                {% for item in upcoming %}
+                    <div class="status-row">
+                        <div>
+                            <h6>{{ item.obj.name }}</h6>
+                            <small>Due {{ item.due_date|date:"M d, Y" }} · {{ item.days }} days remaining</small>
+                        </div>
+                        <span class="status-pill pill-upcoming">Upcoming</span>
+                    </div>
+                {% endfor %}
+
+                {% for item in healthy %}
+                    <div class="status-row">
+                        <div>
+                            <h6>{{ item.obj.name }}</h6>
+                            <small><i class="fas fa-location-dot me-1"></i> {{ item.obj.location|default:"No location" }}</small>
+                        </div>
+                        <span class="status-pill pill-healthy">Healthy</span>
+                    </div>
+                {% endfor %}
+
+                {% if not upcoming and not healthy %}
+                    <div class="empty-state">
+                        <p class="mb-0">No additional assets found for the current filter.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

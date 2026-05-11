@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Factory Gate Kiosk</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/tesseract.js@5.0.3/dist/tesseract.min.js"></script>
+    <style>
+        body { overscroll-behavior-y: contain; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans p-2 md:p-6 flex justify-center items-start">
+
+<script>
+    const djangoCsrfToken = "{{ csrf_token }}";
+    axios.defaults.headers.common['X-CSRFToken'] = djangoCsrfToken;
+</script>
+
+{% verbatim %}
+<div id="app" class="w-full max-w-2xl bg-white rounded-3xl shadow-xl overflow-hidden pb-6">
+    
+    <div class="bg-slate-800 text-white p-6 text-center">
+        <h1 class="text-2xl font-black tracking-tight"><i class="fa-solid fa-shield-halved text-blue-400 mr-2"></i> Gate Security</h1>
+    </div>
+
+    <div class="flex p-4 gap-2 bg-slate-50 border-b border-slate-200">
+        <button @click="activeTab = 'in'" :class="activeTab === 'in' ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200'" class="flex-1 py-4 text-lg font-bold rounded-xl transition-all flex items-center justify-center gap-2">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i> Check IN
+        </button>
+        <button @click="switchToOutTab" :class="activeTab === 'out' ? 'bg-amber-500 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200'" class="flex-1 py-4 text-lg font-bold rounded-xl transition-all flex items-center justify-center gap-2">
+            <i class="fa-solid fa-person-walking-arrow-right"></i> Check OUT
+        </button>
+    </div>
+
+    <div class="p-4 md:p-6">
+        <div v-show="activeTab === 'in'" class="space-y-6">
+            
+            <div class="bg-slate-100 p-3 rounded-2xl border border-slate-200">
+                <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden shadow-inner flex items-center justify-center">
+                    <video ref="cameraFeed" autoplay playsinline class="w-full h-full object-cover"></video>
+                    <canvas ref="photoCanvas" class="hidden"></canvas>
+                    
+                    <div v-if="cameraError" class="absolute inset-0 flex flex-col items-center justify-center text-red-400 p-4 text-center bg-slate-900">
+                        <i class="fa-solid fa-video-slash text-4xl mb-2"></i>
+                        <p class="font-bold">Camera unavailable.</p>
+                    </div>
+
+                    <div v-if="photoTaken" class="absolute top-3 right-3 bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg flex items-center gap-2">
+                        <i class="fa-solid fa-face-smile"></i> Face Captured
+                    </div>
+                </div>
+                <button @click="takeFacePhoto" type="button" class="w-full mt-3 bg-slate-700 hover:bg-slate-800 text-white py-4 rounded-xl font-bold text-lg flex justify-center items-center gap-2 transition-colors">
+                    <i class="fa-solid fa-camera"></i> Capture Face Photo
+                </button>
+            </div>
+
+            <form @submit.prevent="submitEntry" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1 ml-1 uppercase tracking-wider">Phone Number *</label>
+                    <input type="tel" v-model="formData.phone_number" required placeholder="e.g. 9876543210" class="w-full p-4 text-lg border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all bg-slate-50 focus:bg-white">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1 ml-1 uppercase tracking-wider">Full Name *</label>
+                    <input type="text" v-model="formData.person_name" required placeholder="Driver or Visitor Name" class="w-full p-4 text-lg border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all bg-slate-50 focus:bg-white">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1 ml-1 uppercase tracking-wider flex items-center justify-between">
+                        <span>Vehicle Number</span>
+                        <span v-if="isScanning" class="text-blue-600 animate-pulse text-xs font-bold"><i class="fa-solid fa-microchip"></i> Scanning...</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="text" v-model="formData.vehicle_number" :placeholder="isScanning ? 'Reading image...' : 'MH 01 AB 1234'" class="w-full p-4 text-lg border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all bg-slate-50 focus:bg-white uppercase">
+                        
+                        <button @click="scanPlate" type="button" :disabled="isScanning" class="bg-blue-100 hover:bg-blue-200 text-blue-700 border-2 border-blue-200 px-6 rounded-xl transition-colors flex items-center justify-center disabled:opacity-50">
+                            <i v-if="isScanning" class="fa-solid fa-spinner fa-spin text-2xl"></i>
+                            <i v-else class="fa-solid fa-camera-retro text-2xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1 ml-1 uppercase tracking-wider">Purpose *</label>
+                    <select v-model="formData.purpose" required class="w-full p-4 text-lg border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all bg-slate-50 focus:bg-white appearance-none">
+                        <option value="" disabled>Tap to select reason...</option>
+                        <optgroup label="Walk-In / Direct">
+                            <option value="Meeting">Meeting</option>
+                            <option value="Material Drop-off">Material Drop-off</option>
+                            <option value="Material Pickup">Material Pickup</option>
+                            <option value="Maintenance">Maintenance Worker</option>
+                        </optgroup>
+                        <optgroup label="Requires Approval">
+                            <option value="Interview">Interview</option>
+                            <option value="New Joinee">New Joinee</option>
+                            <option value="Unknown">Unknown / Other</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <input type="hidden" v-model="formData.host" value="1"> 
+
+                <button type="submit" :disabled="isSubmitting" class="w-full py-5 text-xl font-bold rounded-xl transition-all shadow-lg flex justify-center items-center gap-3 disabled:opacity-70 mt-6" :class="isSubmitting ? 'bg-slate-400 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'">
+                    <i v-if="isSubmitting" class="fa-solid fa-spinner fa-spin"></i>
+                    <i v-else class="fa-solid fa-check-double"></i>
+                    {{ isSubmitting ? 'Processing...' : 'Submit Entry' }}
+                </button>
+            </form>
+        </div>
+
+        <div v-show="activeTab === 'out'" class="space-y-4">
+            <div v-if="activeVisitors.length === 0" class="text-center py-16 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                <h3 class="text-xl font-bold text-slate-700">Factory Empty</h3>
+            </div>
+            <div v-for="visitor in activeVisitors" :key="visitor.id" class="bg-white border-2 border-slate-100 shadow-sm p-4 rounded-xl flex justify-between items-center">
+                <div>
+                    <strong class="text-lg text-slate-800 block">{{ visitor.person_name }}</strong>
+                    <div class="text-sm text-slate-500 mt-1 flex gap-3">
+                        <span>{{ visitor.phone_number }}</span>
+                    </div>
+                </div>
+                <button @click="checkOutVisitor(visitor.id)" class="bg-amber-100 text-amber-800 px-6 py-4 rounded-xl font-bold">Exit 👋</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endverbatim %}
+
+<script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            const activeTab = ref('in');
+            const cameraFeed = ref(null);
+            const photoCanvas = ref(null);
+            const photoFile = ref(null);
+            const photoTaken = ref(false);
+            const isSubmitting = ref(false);
+            const activeVisitors = ref([]);
+            const cameraError = ref(false);
+            const isScanning = ref(false);
+            
+            const formData = ref({ phone_number: '', person_name: '', vehicle_number: '', purpose: '', host: 1 });
+
+            const approvalCategories = ['Interview', 'New Joinee', 'Unknown'];
+            const requiresApproval = computed(() => approvalCategories.includes(formData.value.purpose));
+
+            const startCamera = async () => {
+                try {
+                    cameraError.value = false;
+                    // Attempt 1: Just ask politely for the back camera, no strict rules
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: "environment" } 
+                    });
+                    cameraFeed.value.srcObject = stream;
+                } catch (error) {
+                    console.log("Back camera failed, trying absolute minimum...", error);
+                    try {
+                        // Attempt 2: Give me literally any camera you have
+                        const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                        cameraFeed.value.srcObject = fallbackStream;
+                    } catch (fatalError) {
+                        cameraError.value = true;
+                        // THIS IS THE DIAGNOSTIC MAGIC:
+                        alert("Camera blocked! Reason: " + fatalError.name + "\nMessage: " + fatalError.message);
+                    }
+                }
+            };
+            // ACTION 1: Take Face Photo (Saves Blob)
+            const takeFacePhoto = () => {
+                if(cameraError.value) return; 
+                const video = cameraFeed.value;
+                const canvas = photoCanvas.value;
+                canvas.width = video.videoWidth || 640;
+                canvas.height = video.videoHeight || 480;
+                const context = canvas.getContext('2d');
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                canvas.toBlob((blob) => { 
+                    photoFile.value = blob; 
+                    photoTaken.value = true; 
+                }, 'image/jpeg', 0.8);
+            };
+
+            // ACTION 2: Scan Plate (Runs OCR on current camera view)
+            const scanPlate = async () => {
+                if(cameraError.value) return;
+                isScanning.value = true;
+                
+                // Create a temporary hidden canvas just for scanning
+                const video = cameraFeed.value;
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = video.videoWidth || 640;
+                tempCanvas.height = video.videoHeight || 480;
+                tempCanvas.getContext('2d').drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+
+                try {
+                    const { data: { text } } = await Tesseract.recognize(tempCanvas, 'eng');
+                    
+                    // Look for Indian License Plate Patterns (e.g., MH 12 AB 1234)
+                    const platePattern = /[A-Z]{2}\s?[0-9]{2}\s?[A-Z]{1,2}\s?[0-9]{4}/g;
+                    const matches = text.toUpperCase().match(platePattern);
+
+                    if (matches && matches.length > 0) {
+                        formData.value.vehicle_number = matches[0];
+                    } else {
+                        // If no perfect match, just grab whatever text it sees
+                        formData.value.vehicle_number = text.trim().split('\n')[0].toUpperCase();
+                    }
+                } catch (error) {
+                    alert("Could not read the plate. Please type it manually.");
+                } finally {
+                    isScanning.value = false;
+                }
+            };
+
+            const submitEntry = async () => {
+                isSubmitting.value = true;
+                let data = new FormData();
+                data.append('phone_number', formData.value.phone_number);
+                data.append('person_name', formData.value.person_name);
+                data.append('vehicle_number', formData.value.vehicle_number);
+                data.append('purpose', formData.value.purpose);
+                data.append('host', formData.value.host);
+                data.append('status', requiresApproval.value ? 'Pending' : 'Direct');
+
+                if (photoFile.value) { data.append('photo', photoFile.value, 'visitor_photo.jpg'); }
+
+                try {
+                    await axios.post('/api/vms/logs/', data, { headers: { 'Content-Type': 'multipart/form-data' } });
+                    
+                    formData.value = { phone_number: '', person_name: '', vehicle_number: '', purpose: '', host: 1 };
+                    photoFile.value = null;
+                    photoTaken.value = false;
+                    
+                    alert("✅ Saved!");
+                } catch (error) {
+                    alert("❌ Error saving data.");
+                } finally {
+                    isSubmitting.value = false;
+                }
+            };
+
+            const fetchActiveVisitors = async () => {
+                try {
+                    const response = await axios.get('/api/vms/logs/');
+                    activeVisitors.value = response.data.filter(v => (v.status === 'Approved' || v.status === 'Direct') && v.exit_time === null);
+                } catch (error) {}
+            };
+
+            const switchToOutTab = () => {
+                activeTab.value = 'out';
+                fetchActiveVisitors();
+            };
+
+            const checkOutVisitor = async (id) => {
+                if(confirm("Mark as Left?")) {
+                    try {
+                        await axios.patch(`/api/vms/logs/${id}/`, { exit_time: new Date().toISOString() });
+                        fetchActiveVisitors(); 
+                    } catch (error) {}
+                }
+            };
+
+            onMounted(() => {
+                startCamera();
+            });
+
+            return { 
+                activeTab, cameraFeed, photoCanvas, formData, photoTaken, 
+                requiresApproval, isSubmitting, activeVisitors, cameraError, isScanning,
+                takeFacePhoto, scanPlate, submitEntry, switchToOutTab, checkOutVisitor 
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

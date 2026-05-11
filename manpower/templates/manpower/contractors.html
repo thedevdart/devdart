@@ -1,0 +1,182 @@
+{% extends 'manpower/base.html' %}
+
+{% block content %}
+<script src="//unpkg.com/alpinejs" defer></script>
+
+<div class="max-w-[90rem] mx-auto py-2 font-sans relative space-y-6" x-data="contractorHub()">
+    
+    <div class="flex flex-col md:flex-row md:justify-between md:items-end gap-4 shrink-0">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+                <span class="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 p-2 rounded-lg transition-colors"><i class="fa-solid fa-chart-simple text-lg"></i></span>
+                Contractor Analytics
+            </h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Track unique daily headcount, active centers, and roster sizes by contractor.</p>
+        </div>
+    </div>
+
+    <div class="flex flex-col lg:flex-row gap-6 h-[750px] min-h-[600px]">
+        
+        <div class="w-full lg:w-1/4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-full shrink-0">
+            <div class="p-4 border-b border-slate-100 dark:border-slate-700">
+                <div class="relative">
+                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" x-model="searchQuery" placeholder="Search contractors..." class="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none dark:text-white transition-colors">
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                <template x-for="contractor in filteredContractors" :key="contractor.id">
+                    <button @click="selectContractor(contractor.id)" 
+                            class="w-full text-left px-4 py-3 rounded-xl transition-all duration-200 flex flex-col justify-center"
+                            :class="selectedId === contractor.id ? 'bg-emerald-600 text-white shadow-md' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 group'">
+                        <div class="flex justify-between items-center w-full">
+                            <span class="font-bold text-sm truncate pr-2" :class="selectedId === contractor.id ? 'text-white' : 'text-slate-800 dark:text-slate-200'" x-text="contractor.name"></span>
+                            <i class="fa-solid fa-chevron-right text-xs opacity-50" x-show="selectedId !== contractor.id"></i>
+                        </div>
+                        <span class="text-[10px] uppercase tracking-wider font-semibold mt-1" :class="selectedId === contractor.id ? 'text-emerald-200' : 'text-slate-400 group-hover:text-emerald-500'">
+                            <span x-text="contractor.total"></span> Registered
+                        </span>
+                    </button>
+                </template>
+            </div>
+        </div>
+
+        <div class="w-full lg:w-3/4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-full relative overflow-hidden">
+            
+            <div x-show="!selectedId" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 z-10 bg-slate-50/50 dark:bg-slate-900/30 backdrop-blur-sm rounded-2xl">
+                <div class="w-20 h-20 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center mb-4 border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <i class="fa-solid fa-chart-pie text-3xl text-emerald-500/50"></i>
+                </div>
+                <p class="font-medium text-lg text-slate-700 dark:text-slate-300">Select a Contractor</p>
+                <p class="text-sm mt-1">View their active centers and unique daily headcount analytics.</p>
+            </div>
+
+            <div x-show="selectedId" style="display: none;" class="p-6 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-800 dark:text-white tracking-tight" x-text="analytics.name"></h2>
+                        <div class="flex flex-wrap items-center gap-2 mt-2">
+                            <template x-for="center in analytics.centers">
+                                <span class="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] uppercase font-bold px-2.5 py-1 rounded-md" x-text="center"></span>
+                            </template>
+                            <span x-show="analytics.centers.length === 0" class="text-xs text-slate-500 italic">No centers assigned yet</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl p-1 shadow-sm flex items-center shrink-0">
+                        <input type="month" x-model="selectedMonth" @change="fetchAnalytics()" class="bg-transparent border-none outline-none text-sm font-bold text-slate-700 dark:text-slate-200 px-3 py-1 cursor-pointer">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Database Roster</p>
+                            <p class="text-2xl font-black text-slate-800 dark:text-white mt-1" x-text="analytics.total_workers"></p>
+                        </div>
+                        <i class="fa-solid fa-users text-3xl text-slate-200 dark:text-slate-700"></i>
+                    </div>
+                    <div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Peak Daily Headcount</p>
+                            <p class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1" x-text="analytics.max_count"></p>
+                        </div>
+                        <i class="fa-solid fa-arrow-trend-up text-3xl text-emerald-50 dark:text-emerald-900/30"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div x-show="selectedId" style="display: none;" class="flex-1 p-6 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-800 flex flex-col">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-6 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-regular fa-calendar-days text-emerald-500"></i> Unique Daily Labors
+                </h3>
+                
+                <div x-show="isLoading" class="flex-1 flex justify-center items-center"><i class="fa-solid fa-circle-notch fa-spin text-3xl text-emerald-500"></i></div>
+
+                <div x-show="!isLoading" class="flex-1 flex items-end gap-1.5 min-h-[250px] pb-6 overflow-x-auto custom-scrollbar">
+                    <template x-for="day in analytics.chart" :key="day.day">
+                        <div class="flex flex-col items-center flex-1 min-w-[24px] group relative">
+                            <div class="absolute bottom-full mb-2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
+                                <span x-text="day.date"></span>: <span x-text="day.count"></span> workers
+                            </div>
+                            
+                            <div class="w-full bg-emerald-100 dark:bg-emerald-900/30 rounded-t-sm transition-all duration-500 flex items-end justify-center group-hover:bg-emerald-200 dark:group-hover:bg-emerald-800/50" 
+                                 :style="`height: ${Math.max((day.count / analytics.max_count) * 100, 2)}%`">
+                                <div class="w-full bg-emerald-500 dark:bg-emerald-400 rounded-t-sm transition-all duration-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]" 
+                                     :style="`height: ${day.count > 0 ? '100%' : '0%'}`"></div>
+                            </div>
+                            
+                            <span class="text-[10px] font-bold text-slate-400 mt-2" x-text="day.day"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    function contractorHub() {
+        return {
+            contractors: [
+                {% for c in contractors %}
+                { id: {{ c.id }}, name: "{{ c.name|escapejs }}", total: {{ c.total_registered }} }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            searchQuery: '',
+            selectedId: null,
+            selectedMonth: '',
+            isLoading: false,
+            analytics: {
+                name: '',
+                total_workers: 0,
+                centers: [],
+                max_count: 1,
+                chart: []
+            },
+
+            init() {
+                const d = new Date();
+                this.selectedMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            },
+
+            get filteredContractors() {
+                if (this.searchQuery === '') return this.contractors;
+                const searchLower = this.searchQuery.toLowerCase();
+                return this.contractors.filter(c => c.name.toLowerCase().includes(searchLower));
+            },
+
+            async selectContractor(id) {
+                this.selectedId = id;
+                await this.fetchAnalytics();
+            },
+
+            async fetchAnalytics() {
+                if(!this.selectedId || !this.selectedMonth) return;
+                
+                this.isLoading = true;
+                const [year, month] = this.selectedMonth.split('-');
+                
+                try {
+                    const res = await fetch(`/manpower/api/contractors/${this.selectedId}/analytics/?year=${year}&month=${month}`);
+                    const data = await res.json();
+                    
+                    if(data.status === 'success') {
+                        this.analytics = {
+                            name: data.contractor,
+                            total_workers: data.total_workers,
+                            centers: data.centers,
+                            max_count: data.max_count,
+                            chart: data.chart_data
+                        };
+                    }
+                } catch(e) {
+                    console.error("Failed to load analytics");
+                }
+                this.isLoading = false;
+            }
+        }
+    }
+</script>
+{% endblock %}

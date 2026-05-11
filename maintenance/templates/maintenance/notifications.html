@@ -1,0 +1,73 @@
+{% extends "maintenance/base.html" %}
+
+{% block content %}
+<style>
+    .notif-container { max-width: 800px; margin: 0 auto; }
+    .notif-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 1rem;
+        margin-bottom: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .notif-card:hover { 
+        transform: translateY(-2px); 
+        box-shadow: var(--shadow-md);
+    }
+    .notif-icon {
+        width: 48px; height: 48px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+        font-size: 1.2rem;
+    }
+    .notif-icon.danger { background: var(--accent-danger-bg); color: var(--accent-danger-text); }
+    .notif-icon.warning { background: var(--accent-warning-bg); color: var(--accent-warning-text); }
+    .notif-icon.info { background: var(--primary-soft); color: var(--primary); }
+    
+    .notif-content { flex: 1; }
+    .notif-text { color: var(--text-main); font-weight: 600; font-size: 1rem; }
+    .notif-sub { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem; }
+</style>
+
+<div class="notif-container animate-slide-up">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="navbar-title">Notifications</h2>
+            <p class="navbar-subtitle">Alerts and reminders for your maintenance schedule.</p>
+        </div>
+        <span class="badge bg-secondary rounded-pill px-3 py-2">{{ global_notifications|length }} Active</span>
+    </div>
+
+    {% if global_notifications %}
+        {% for n in global_notifications %}
+            <div class="notif-card">
+                <div class="notif-icon {{ n.level }}">
+                    {% if n.level == 'danger' %}
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                    {% elif n.level == 'warning' %}
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    {% else %}
+                        <i class="fa-solid fa-circle-info"></i>
+                    {% endif %}
+                </div>
+                <div class="notif-content">
+                    <div class="notif-text">{{ n.text }}</div>
+                    <div class="notif-sub">Requires attention based on maintenance schedule</div>
+                </div>
+                <i class="fa-solid fa-chevron-right text-muted opacity-50"></i>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="text-center py-5 saas-card">
+            <i class="fa-regular fa-bell-slash text-muted mb-3" style="font-size: 3rem; opacity: 0.4;"></i>
+            <h5 class="text-muted">No new notifications</h5>
+            <p class="text-soft small mb-0">All systems are healthy. You're all caught up!</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

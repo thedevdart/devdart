@@ -1,0 +1,272 @@
+{% extends 'manpower/base.html' %}
+
+{% block content %}
+<script src="//unpkg.com/alpinejs" defer></script>
+
+<div class="max-w-[90rem] mx-auto py-2 font-sans relative space-y-6" x-data="workerDirectory()">
+    
+    <div class="flex flex-col md:flex-row md:justify-between md:items-end gap-4 shrink-0">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+                <span class="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 p-2 rounded-lg transition-colors"><i class="fa-solid fa-address-book text-lg"></i></span>
+                Workers Directory
+            </h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Manage roles, shifts, and contractor affiliations across all centers.</p>
+        </div>
+        {% csrf_token %}
+    </div>
+
+    <div class="flex flex-col lg:flex-row gap-6 h-[750px] min-h-[600px]">
+        
+        <div class="w-full lg:w-1/4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-full shrink-0">
+            <div class="p-4 border-b border-slate-100 dark:border-slate-700">
+                <div class="relative">
+                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" x-model="searchCenter" placeholder="Search centers..." class="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none dark:text-white transition-colors">
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                <template x-for="center in filteredCenters" :key="center.id">
+                    <button @click="selectCenter(center.id, center.name)" 
+                            class="w-full text-left px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-sm flex items-center justify-between"
+                            :class="selectedCenterId === center.id ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'">
+                        <span x-text="center.name"></span>
+                        <i class="fa-solid fa-chevron-right text-xs opacity-50" x-show="selectedCenterId !== center.id"></i>
+                    </button>
+                </template>
+            </div>
+        </div>
+
+        <div class="w-full lg:w-3/4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-full relative">
+            
+            <div x-show="!selectedCenterId" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 z-10 bg-white dark:bg-slate-800 rounded-2xl">
+                <div class="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-full flex items-center justify-center mb-4 border border-slate-100 dark:border-slate-700">
+                    <i class="fa-solid fa-building-user text-3xl opacity-50"></i>
+                </div>
+                <p class="font-medium text-lg">Select a Center</p>
+                <p class="text-sm mt-1">Choose a center from the menu to manage its workforce.</p>
+            </div>
+
+            <div x-show="selectedCenterId" style="display: none;" class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
+                <h3 class="font-bold text-slate-800 dark:text-slate-200 text-lg flex items-center gap-2">
+                    <span x-text="selectedCenterName"></span>
+                </h3>
+                
+                <div class="flex items-center bg-slate-200 dark:bg-slate-950 p-1 rounded-lg shadow-inner">
+                    <button @click="setTab('company')" class="px-5 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all" :class="activeTab === 'company' ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow border border-slate-200 dark:border-slate-600' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'">Company Staff</button>
+                    <button @click="setTab('contractor')" class="px-5 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all" :class="activeTab === 'contractor' ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow border border-slate-200 dark:border-slate-600' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'">Contractors</button>
+                </div>
+            </div>
+
+            <div x-show="selectedCenterId" style="display: none;" class="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex flex-wrap justify-between items-center gap-4 shrink-0 bg-white dark:bg-slate-800">
+                
+                <div class="flex items-center gap-4 flex-1">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Headcount: <span x-text="filteredWorkers.length" class="text-emerald-600 dark:text-emerald-400 ml-1"></span></p>
+                    
+                    <div class="h-5 w-px bg-slate-300 dark:bg-slate-600 hidden sm:block"></div>
+                    
+                    <div class="relative w-full max-w-sm">
+                        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" x-model="searchWorker" placeholder="Search people by name..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none dark:text-white transition-colors">
+                        <button x-show="searchWorker.length > 0" @click="searchWorker = ''" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors" style="display: none;">
+                            <i class="fa-solid fa-xmark text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button @click="addWorker()" class="text-xs bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 px-3 py-1.5 rounded-lg font-bold hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors shadow-sm flex items-center gap-1.5 shrink-0">
+                    <i class="fa-solid fa-plus"></i> Add Person
+                </button>
+            </div>
+            
+            <datalist id="contractor-list">
+                {% for c in contractors %}
+                    <option value="{{ c.name }}"></option>
+                {% endfor %}
+            </datalist>
+
+            <div x-show="selectedCenterId" style="display: none;" class="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50 dark:bg-slate-900/30" id="tableScrollContainer">
+                <div x-show="isLoading" class="p-12 flex justify-center"><i class="fa-solid fa-circle-notch fa-spin text-3xl text-emerald-500"></i></div>
+                
+                <table x-show="!isLoading" class="w-full text-sm text-left border-collapse">
+                    <thead class="bg-slate-50 dark:bg-slate-900 text-[11px] uppercase tracking-wider font-semibold sticky top-0 text-slate-500 dark:text-slate-400 z-10 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+                        <tr>
+                            <th class="px-4 py-3 w-3/12">Role / Type</th>
+                            <th class="px-4 py-3 w-4/12">Full Name</th>
+                            <th class="px-4 py-3 w-2/12">Shift Pref.</th>
+                            <th x-show="activeTab === 'contractor'" class="px-4 py-3 w-3/12">Contractor Entity</th>
+                            <th class="px-2 py-3 w-12 text-center"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800">
+                        <template x-for="worker in filteredWorkers" :key="worker.id">
+                            <tr class="group hover:bg-emerald-50/40 dark:hover:bg-emerald-500/5 transition-colors">
+                                <td class="px-4 py-2">
+                                    <select x-model="worker.role" class="w-full bg-transparent text-xs font-bold uppercase text-slate-600 dark:text-slate-300 outline-none rounded p-1 cursor-pointer focus:ring-2 focus:ring-emerald-500/20">
+                                        <option value="Worker">Worker</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Operator">Operator</option>
+                                        <option value="Supervisor">Supervisor</option>
+                                    </select>
+                                </td>
+                                <td class="px-4 py-2">
+                                    <input type="text" x-model="worker.name" class="w-full bg-transparent border border-transparent focus:border-emerald-300 dark:focus:border-emerald-500/50 focus:bg-white dark:focus:bg-slate-900 rounded-lg px-2 py-1.5 outline-none transition-colors font-bold text-slate-800 dark:text-slate-200 text-sm shadow-none focus:shadow-sm">
+                                </td>
+                                <td class="px-4 py-2">
+                                    <select x-model="worker.shift" class="w-full bg-transparent text-xs font-bold text-emerald-600 dark:text-emerald-400 outline-none rounded p-1 cursor-pointer focus:ring-2 focus:ring-emerald-500/20">
+                                        <option value="Both">Both</option>
+                                        <option value="Day">Day Only</option>
+                                        <option value="Night">Night Only</option>
+                                    </select>
+                                </td>
+                                <td x-show="activeTab === 'contractor'" class="px-4 py-2">
+                                    <input type="text" list="contractor-list" x-model="worker.contractor_name" placeholder="Select or type new..." class="w-full bg-transparent border border-transparent focus:border-emerald-300 dark:focus:border-emerald-500/50 focus:bg-white dark:focus:bg-slate-900 rounded-lg px-2 py-1.5 outline-none transition-colors text-slate-600 dark:text-slate-300 text-sm shadow-none focus:shadow-sm">
+                                </td>
+                                <td class="px-2 py-2 text-center">
+                                    <button x-show="typeof worker.id === 'string' && worker.id.startsWith('new-')" @click="removeWorker(worker.id)" class="text-slate-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700" title="Remove unsaved row">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                        
+                        <tr x-show="filteredWorkers.length === 0 && !isLoading">
+                            <td colspan="100%" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500">
+                                <i class="fa-solid fa-users-slash text-2xl mb-2 opacity-50"></i>
+                                <p>No people found.</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div x-show="selectedCenterId" style="display: none;" class="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 shrink-0">
+                <button @click="saveDatabase()" id="saveBtn" class="w-full bg-slate-900 dark:bg-emerald-600 text-white font-medium text-sm py-2.5 rounded-xl hover:bg-slate-800 dark:hover:bg-emerald-700 shadow-sm transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Directory Updates
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function workerDirectory() {
+        return {
+            centers: [
+                {% for c in centers %}{ id: {{ c.id }}, name: "{{ c.name|escapejs }}" }{% if not forloop.last %},{% endif %}{% endfor %}
+            ],
+            searchCenter: '',
+            searchWorker: '',
+            selectedCenterId: null,
+            selectedCenterName: '',
+            activeTab: 'company',
+            workers: [],
+            isLoading: false,
+
+            get filteredCenters() {
+                if (this.searchCenter === '') return this.centers;
+                return this.centers.filter(c => c.name.toLowerCase().includes(this.searchCenter.toLowerCase()));
+            },
+            
+            // NEW: Reactive filter for the people list
+            get filteredWorkers() {
+                if (this.searchWorker === '') return this.workers;
+                const searchLower = this.searchWorker.toLowerCase();
+                return this.workers.filter(w => w.name.toLowerCase().includes(searchLower));
+            },
+
+            async selectCenter(id, name) {
+                this.selectedCenterId = id;
+                this.selectedCenterName = name;
+                this.searchWorker = ''; // Reset search when switching centers
+                await this.fetchWorkers();
+            },
+
+            async setTab(tab) {
+                this.activeTab = tab;
+                this.searchWorker = ''; // Reset search when switching tabs
+                if(this.selectedCenterId) {
+                    await this.fetchWorkers();
+                }
+            },
+
+            async fetchWorkers() {
+                this.isLoading = true;
+                try {
+                    const response = await fetch(`/manpower/api/workers/${this.selectedCenterId}/?type=${this.activeTab}`);
+                    const data = await response.json();
+                    this.workers = data.workers;
+                } catch(e) {
+                    alert("Failed to load data.");
+                }
+                this.isLoading = false;
+            },
+
+            addWorker() {
+                this.searchWorker = ''; // Clear search to ensure new person is visible
+                this.workers.unshift({
+                    id: 'new-' + Date.now(),
+                    name: '',
+                    role: 'Worker',
+                    shift: 'Both',
+                    contractor_name: ''
+                });
+                
+                // Auto focus logic
+                setTimeout(() => {
+                    const scrollContainer = document.getElementById('tableScrollContainer');
+                    if(scrollContainer) scrollContainer.scrollTop = 0;
+                    
+                    const firstInput = document.querySelector('#tableBody tr:first-child input[type="text"]');
+                    if (firstInput) firstInput.focus();
+                }, 50);
+            },
+            
+            // NEW: Deletes by specific ID so filtering doesn't ruin the array index mapping
+            removeWorker(id) {
+                this.workers = this.workers.filter(w => w.id !== id);
+            },
+
+            async saveDatabase() {
+                const btn = document.getElementById('saveBtn');
+                const ogHtml = btn.innerHTML;
+                btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...`;
+                btn.disabled = true;
+
+                try {
+                    const res = await fetch("{% url 'api_save_workers' %}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        },
+                        body: JSON.stringify({
+                            center_id: this.selectedCenterId,
+                            affiliation: this.activeTab,
+                            workers: this.workers
+                        })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.status === 'success') {
+                        btn.innerHTML = `<i class="fa-solid fa-check-double"></i> Saved`;
+                        btn.classList.add('bg-emerald-600', 'text-white');
+                        setTimeout(() => {
+                            btn.innerHTML = ogHtml;
+                            btn.disabled = false;
+                            btn.classList.remove('bg-emerald-600', 'text-white');
+                            this.fetchWorkers(); // Reload clean data
+                        }, 1000);
+                    } else {
+                        throw new Error(data.message);
+                    }
+                } catch(e) {
+                    alert("Error saving: " + e.message);
+                    btn.innerHTML = ogHtml;
+                    btn.disabled = false;
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,359 @@
+{% extends 'records/base.html' %}
+{% block content %}
+
+<style>
+    .code-editor {
+        font-family: 'Fira Code', 'Cascadia Code', 'Source Code Pro', monospace;
+        background-color: #0f172a !important; 
+        color: #f8fafc !important; 
+        border: 1px solid #1e293b;
+        line-height: 1.6;
+    }
+    .html-glow { color: #fb923c; } 
+    .json-glow { color: #22d3ee; } 
+    .prompt-glow { color: #e879f9; }
+
+    .drag-active {
+        border-color: #06b6d4 !important; 
+        background-color: rgba(6, 182, 212, 0.05) !important;
+    }
+
+    /* Live Preview Styles */
+    #aiTablePreview [style*="background-color"] { color: #000; }
+    .dark #aiTablePreview { color: #f1f5f9; }
+    #aiTablePreview .nexus-grid th, #aiTablePreview .nexus-grid td { border-color: #cbd5e1; }
+    .dark #aiTablePreview .nexus-grid th, .dark #aiTablePreview .nexus-grid td { border-color: #334155; }
+    
+    /* Hover Inspector Target */
+    #aiTablePreview .editable-cell {
+        cursor: crosshair;
+        background-color: rgba(6, 182, 212, 0.1) !important;
+        border: 1px dashed rgba(6, 182, 212, 0.5);
+        min-width: 30px;
+        display: inline-block;
+    }
+    #aiTablePreview .editable-cell:hover {
+        background-color: rgba(6, 182, 212, 0.3) !important;
+        border: 1px solid #06b6d4;
+    }
+
+    /* Floating Tooltip */
+    #inspectorTooltip {
+        transition: opacity 0.2s, transform 0.1s;
+        pointer-events: none;
+        z-index: 100;
+    }
+</style>
+
+<div class="max-w-[1400px] mx-auto pb-12 pt-4">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-6 mb-8">
+        <div class="space-y-2">
+            <a href="{% url 'records:template_builder' %}" class="group inline-flex items-center text-cyan-600 dark:text-cyan-500 hover:text-cyan-700 dark:hover:text-cyan-400 text-[10px] font-black uppercase tracking-widest transition-all">
+                <i class="fa-solid fa-arrow-left mr-2 group-hover:-translate-x-1 transition-transform"></i> 
+                Go to Architect
+            </a>
+            <h1 class="text-3xl md:text-4xl font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-4">
+                <i class="fa-solid fa-microchip text-cyan-600 dark:text-cyan-500"></i>
+                AI Format Synthesizer
+            </h1>
+            <p class="text-slate-500 dark:text-slate-400 font-bold text-[10px] mt-2 uppercase tracking-widest">
+                Upload Excel -> Strip Rows -> Synthesize Semantic Layout via Gemini.
+            </p>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-[#0b1121] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden mb-6">
+        <div class="p-8 md:p-12">
+            <div id="dropZone" class="relative border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-12 text-center transition-all duration-300 hover:border-cyan-500 hover:bg-cyan-50/30 dark:hover:bg-cyan-900/10 group cursor-pointer flex flex-col items-center justify-center min-h-[200px]">
+                <input type="file" id="excelUpload" accept=".xlsx, .xls" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                <div id="uploadContent" class="flex flex-col items-center pointer-events-none transition-all duration-300">
+                    <div class="w-16 h-16 bg-cyan-50 dark:bg-cyan-900/20 text-cyan-500 rounded-full flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform shadow-inner">
+                        <i class="fa-solid fa-file-excel"></i>
+                    </div>
+                    <h3 class="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight mb-2">Upload Excel Format</h3>
+                    <p class="text-slate-500 dark:text-slate-400 font-bold text-xs max-w-md mx-auto">
+                        Drag and drop your <span class="text-cyan-600 dark:text-cyan-400">.xlsx</span> file here.
+                    </p>
+                </div>
+                <div id="loadingState" class="hidden flex-col items-center pointer-events-none">
+                    <div class="w-12 h-12 border-4 border-slate-200 dark:border-slate-700 border-t-cyan-500 rounded-full animate-spin mb-4"></div>
+                    <h3 class="text-sm font-black text-cyan-600 dark:text-cyan-400 uppercase tracking-tight">Processing Python Grid...</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="aiActionSection" class="hidden bg-slate-900 dark:bg-slate-950 border border-slate-800 rounded-2xl p-6 flex-col sm:flex-row items-center justify-between gap-6 shadow-lg mb-6 animate-in slide-in-from-bottom-4">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 text-xl border border-indigo-500/30">
+                <i class="fa-solid fa-sparkles"></i>
+            </div>
+            <div>
+                <h4 class="text-sm font-black text-white uppercase tracking-widest">Python Grid Ready</h4>
+                <p class="text-xs font-bold text-slate-400 mt-1">Excess rows stripped. Ready to synthesize semantic mapping.</p>
+            </div>
+        </div>
+        <button id="synthesizeBtn" onclick="callGeminiAPI()" class="w-full sm:w-auto bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white px-8 py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-cyan-600/20 flex items-center justify-center gap-3 shrink-0">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Synthesize via Gemini
+        </button>
+    </div>
+
+    <div id="resultsSection" class="hidden flex-col gap-6 animate-in fade-in slide-in-from-bottom-8 duration-500">
+        
+        <div class="bg-white dark:bg-[#0b1121] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col relative">
+            <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex justify-between items-center shrink-0 z-10 relative">
+                <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center"><i class="fa-solid fa-eye text-cyan-500 mr-2 text-sm"></i> Smart Inspector Preview</span>
+                    <span class="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 text-[8px] px-2 py-0.5 rounded uppercase font-black tracking-widest border border-cyan-200 dark:border-cyan-800">Hover over inputs</span>
+                </div>
+            </div>
+            <div id="aiTablePreview" class="p-8 overflow-x-auto bg-slate-50/50 dark:bg-transparent min-h-[300px]">
+                </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white dark:bg-[#0b1121] rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[400px]">
+                <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 flex justify-between items-center shrink-0">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"><i class="fa-brands fa-html5 html-glow mr-2 text-sm"></i> Semantic HTML</span>
+                    <button onclick="copyToClipboard('htmlOutput', this)" class="text-[9px] font-black uppercase tracking-widest bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1 rounded transition-colors">Copy</button>
+                </div>
+                <textarea id="htmlOutput" class="w-full flex-1 code-editor p-4 text-[11px] custom-scrollbar outline-none text-orange-100 resize-none"></textarea>
+            </div>
+
+            <div class="flex flex-col gap-6 h-[400px]">
+                <div class="bg-white dark:bg-[#0b1121] rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col flex-1">
+                    <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 flex justify-between items-center shrink-0">
+                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"><i class="fa-solid fa-code json-glow mr-2 text-sm"></i> Semantic Schema</span>
+                        <button onclick="copyToClipboard('schemaOutput', this)" class="text-[9px] font-black uppercase tracking-widest bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1 rounded transition-colors">Copy</button>
+                    </div>
+                    <textarea id="schemaOutput" class="w-full flex-1 code-editor p-4 text-[11px] custom-scrollbar outline-none text-cyan-100 resize-none"></textarea>
+                </div>
+                <div class="bg-white dark:bg-[#0b1121] rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[120px]">
+                    <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-2 flex justify-between items-center shrink-0">
+                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 px-2"><i class="fa-solid fa-robot prompt-glow mr-2"></i> Custom Prompt</span>
+                        <button onclick="copyToClipboard('promptOutput', this)" class="text-[8px] font-black uppercase tracking-widest bg-slate-200 dark:bg-slate-800 px-2 py-1 rounded">Copy</button>
+                    </div>
+                    <textarea id="promptOutput" class="w-full flex-1 code-editor p-3 text-[11px] custom-scrollbar outline-none text-fuchsia-100 resize-none"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="inspectorTooltip" class="fixed opacity-0 bg-slate-900 text-white px-3 py-2 rounded-lg shadow-2xl border border-slate-700 text-[10px] font-black tracking-widest transform -translate-x-1/2 -translate-y-full flex flex-col gap-1 z-[9999]">
+        <div class="flex items-center gap-2 border-b border-slate-700 pb-1 mb-1">
+            <span class="text-slate-400">ID:</span> <span id="ttId" class="text-cyan-400"></span>
+        </div>
+        <div id="ttStatus" class="flex items-center gap-1.5 text-emerald-400">
+            <i class="fa-solid fa-circle-check"></i> Mapped in Schema
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const csrfToken = '{{ csrf_token }}';
+    const GEMINI_API_KEY = "REDACTED"; // Provided by user constraints
+    
+    let rawPythonHtml = "";
+    let currentSchemaObj = {};
+
+    // --- UPLOAD LOGIC ---
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('excelUpload');
+    
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+        dropZone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); });
+    });
+    dropZone.addEventListener('dragover', () => dropZone.classList.add('drag-active'));
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-active'));
+    dropZone.addEventListener('drop', () => dropZone.classList.remove('drag-active'));
+
+    fileInput.addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById('uploadContent').classList.add('hidden');
+        document.getElementById('loadingState').classList.remove('hidden');
+        document.getElementById('loadingState').classList.add('flex');
+        document.getElementById('aiActionSection').classList.add('hidden');
+        document.getElementById('resultsSection').classList.add('hidden');
+
+        const formData = new FormData();
+        formData.append('excel_file', file);
+
+        try {
+            const response = await fetch('{% url "records:api_excel_to_html" %}', { 
+                method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                rawPythonHtml = stripRepetitiveRows(data.html); // Clean HTML instantly
+                
+                document.getElementById('aiActionSection').classList.remove('hidden');
+                document.getElementById('aiActionSection').classList.add('flex');
+            } else {
+                alert('Failed to parse Excel.');
+            }
+        } catch (error) {
+            alert('Network error.');
+        } finally {
+            fileInput.value = ''; 
+            document.getElementById('uploadContent').classList.remove('hidden');
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('flex');
+        }
+    });
+
+    // --- ROW STRIPPING ALGORITHM ---
+    function stripRepetitiveRows(htmlString) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlString, 'text/html');
+        const tbody = doc.querySelector('tbody');
+        if (!tbody) return htmlString;
+
+        let consecutiveDataRows = 0;
+        const rowsToRemove = [];
+
+        Array.from(tbody.children).forEach(tr => {
+            const cells = Array.from(tr.children);
+            // Detect if a row is purely inputs (all cells either have .editable-cell or are empty)
+            const isDataRow = cells.length > 0 && cells.every(td => {
+                return td.querySelector('.editable-cell') !== null || td.innerText.trim() === '';
+            });
+
+            if (isDataRow) {
+                consecutiveDataRows++;
+                if (consecutiveDataRows > 2) rowsToRemove.push(tr); // Keep only 2 template rows
+            } else {
+                consecutiveDataRows = 0; 
+            }
+        });
+
+        rowsToRemove.forEach(tr => tr.remove());
+        return doc.body.innerHTML;
+    }
+
+    // --- GEMINI API CALL ---
+    async function callGeminiAPI() {
+        const btn = document.getElementById('synthesizeBtn');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Synthesizing...`;
+        btn.disabled = true;
+
+        const promptText = `
+        You are an expert data architect building an enterprise Quality Management System. 
+        I am giving you a raw HTML table structure generated from an Excel form.
+        
+        YOUR TASKS:
+        1. Look at the HTML. Replace all the generic dummy IDs (like 'field_rX_cY') in the <span class="editable-cell"> tags with precise, semantic snake_case IDs based on the text labels adjacent to them (e.g., 'id="operator_name"').
+        2. If you see a repeating grid of data rows (e.g., test specimens 1, 2, 3), name their IDs dynamically (e.g., 'id="row_1_gsm"') and map them into a JSON array called "rows" in the schema.
+        3. Write a 2-3 sentence 'custom_extraction_prompt' that tells an OCR AI what this document is and any specific traps to watch out for based on the layout.
+        
+        OUTPUT FORMAT:
+        You MUST return ONLY a raw, valid JSON object (No markdown backticks, no conversational text).
+        Structure:
+        {
+            "html_layout": "<table class='nexus-grid'>...</table>",
+            "json_schema": { "field_name": "string", "rows": [ { "col_name": "string" } ] },
+            "custom_extraction_prompt": "Instruction for OCR..."
+        }
+        
+        RAW HTML TO PROCESS:
+        ${rawPythonHtml}
+        `;
+
+        try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    contents: [{ parts: [{ text: promptText }] }],
+                    generationConfig: { response_mime_type: "application/json" } 
+                })
+            });
+
+            if(res.ok) {
+                const aiData = await res.json();
+                const jsonText = aiData.candidates[0].content.parts[0].text;
+                const parsedResponse = JSON.parse(jsonText);
+
+                // Populate UI
+                document.getElementById('htmlOutput').value = parsedResponse.html_layout;
+                document.getElementById('schemaOutput').value = JSON.stringify(parsedResponse.json_schema, null, 4);
+                document.getElementById('promptOutput').value = parsedResponse.custom_extraction_prompt;
+                document.getElementById('aiTablePreview').innerHTML = parsedResponse.html_layout;
+                
+                currentSchemaObj = parsedResponse.json_schema; // Save for inspector
+                
+                document.getElementById('resultsSection').classList.remove('hidden');
+                document.getElementById('resultsSection').classList.add('flex');
+                setTimeout(() => document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' }), 100);
+
+            } else {
+                alert("Gemini API Error. Check console.");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Synthesis Failed. Ensure API key is active and format is valid.");
+        } finally {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    }
+
+    // --- HOVER INSPECTOR LOGIC ---
+    const previewContainer = document.getElementById('aiTablePreview');
+    const tooltip = document.getElementById('inspectorTooltip');
+    const ttId = document.getElementById('ttId');
+    const ttStatus = document.getElementById('ttStatus');
+
+    // Utility to check if an ID exists anywhere in the JSON Schema (handles flat keys and nested array keys)
+    function isIdInSchema(id, schema) {
+        if(schema.hasOwnProperty(id)) return true;
+        // Check array structures (e.g. schema.rows[0].id)
+        for (const key in schema) {
+            if (Array.isArray(schema[key]) && schema[key].length > 0) {
+                // If the id starts with 'row_' or similar, we check if the base column name exists in the array template
+                // Simple fallback: just check stringified schema
+                if (JSON.stringify(schema[key]).includes(id.replace(/row_\d+_/g, ''))) return true;
+                if (JSON.stringify(schema[key]).includes(id)) return true;
+            }
+        }
+        return false;
+    }
+
+    previewContainer.addEventListener('mousemove', (e) => {
+        if (e.target.classList.contains('editable-cell')) {
+            const cellId = e.target.id;
+            ttId.innerText = cellId || "NO ID ASSIGNED";
+            
+            if (cellId && isIdInSchema(cellId, currentSchemaObj)) {
+                ttStatus.innerHTML = '<i class="fa-solid fa-circle-check"></i> Mapped in Schema';
+                ttStatus.className = 'flex items-center gap-1.5 text-emerald-400 mt-1 pt-1 border-t border-slate-700/50';
+            } else {
+                ttStatus.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Missing in Schema';
+                ttStatus.className = 'flex items-center gap-1.5 text-rose-400 mt-1 pt-1 border-t border-slate-700/50';
+            }
+
+            tooltip.style.opacity = '1';
+            tooltip.style.left = e.pageX + 'px';
+            tooltip.style.top = (e.pageY - 15) + 'px'; // Offset slightly above cursor
+        } else {
+            tooltip.style.opacity = '0';
+        }
+    });
+
+    previewContainer.addEventListener('mouseleave', () => { tooltip.style.opacity = '0'; });
+
+    // Copy Utility
+    function copyToClipboard(elementId, btn) {
+        const textArea = document.getElementById(elementId);
+        textArea.select();
+        navigator.clipboard.writeText(textArea.value);
+        const orig = btn.innerHTML;
+        btn.innerHTML = 'Copied!';
+        setTimeout(() => btn.innerHTML = orig, 1500);
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,315 @@
+{% extends 'records/base.html' %}
+{% with hide_sidebar=True %}
+{% block content %}
+
+<style>
+    /* --- 1. THE NUCLEAR MORPH FIX (Scroll Fix) --- */
+    #main-sidebar { display: none !important; width: 0 !important; pointer-events: none !important; }
+    #morph-topbar { transform: translateY(0) !important; opacity: 1 !important; visibility: visible !important; }
+    
+    /* OVERRIDE: Restore scrolling to the main viewport */
+    #main-content-area { 
+        padding-top: 5.5rem !important; 
+        padding-bottom: 4rem !important; 
+        height: 100vh !important; 
+        overflow-y: auto !important; 
+        display: block !important; 
+    }
+
+    /* --- 2. SaaS-Ready Refinements for Document Viewer --- */
+    #documentContainer [style*="yellow"] { background-color: transparent !important; }
+    .dark #documentContainer [style*="yellow"] { background-color: transparent !important; }
+    
+    .editable-cell { 
+        background-color: #ecfeff !important; /* cyan-50 */
+        border-bottom: 2px solid #a5f3fc; /* cyan-200 */
+        transition: all 0.2s ease-in-out;
+        border-radius: 2px;
+        min-height: 1.5rem;
+        display: inline-block;
+        padding: 2px 6px;
+        min-width: 40px;
+    }
+    .dark .editable-cell {
+        background-color: #083344 !important; /* cyan-950 */
+        border-bottom: 2px solid #0891b2; /* cyan-600 */
+        color: #cffafe;
+    }
+    .editable-cell:focus {
+        background-color: #ffffff !important;
+        outline: 2px solid #06b6d4 !important;
+    }
+    .dark .editable-cell:focus { background-color: #0f172a !important; }
+
+    /* Dark Mode Table Overrides */
+    .dark .nexus-grid { border-color: #334155; }
+    .dark .nexus-grid th { background-color: #1e293b !important; color: #94a3b8 !important; border-color: #334155; }
+    .dark .nexus-grid td { border-color: #334155; color: #e2e8f0; }
+</style>
+
+<div class="w-full max-w-[1800px] mx-auto px-2">
+    
+    <div class="mb-3 pt-2">
+        <a href="{% url 'records:template_records' template.id %}" class="group inline-flex items-center text-cyan-600 dark:text-cyan-500 hover:text-cyan-700 dark:hover:text-cyan-400 text-[10px] font-black uppercase tracking-widest transition-all mb-1">
+            <i class="fa-solid fa-arrow-left mr-2 group-hover:-translate-x-1 transition-transform"></i> 
+            Back to Ledger
+        </a>
+        <h1 class="text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
+            <i class="fa-solid fa-camera text-cyan-500"></i>
+            Scan & Extract: <span class="text-slate-500 font-light">{{ template.title }}</span>
+        </h1>
+    </div>
+
+    <div class="bg-white dark:bg-[#0b1121] border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-4 flex flex-col lg:flex-row items-center justify-between gap-4 z-10 relative">
+        
+        <div class="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+            
+            <div class="w-40">
+                <label class="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Record Date</label>
+                <input type="date" id="manualDateInput" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 outline-none transition-all">
+            </div>
+
+            {% if template.tracking_type == 'TIME_AND_CUSTOM' %}
+            <div class="w-48">
+                <label class="block text-[9px] font-black text-cyan-600 dark:text-cyan-500 uppercase tracking-widest mb-1 flex items-center gap-1">
+                    <i class="fa-solid fa-tag"></i> Category Target
+                </label>
+                <select id="customCategoryInput" required class="w-full bg-cyan-50 dark:bg-cyan-900/10 border border-cyan-200 dark:border-cyan-800 rounded-lg px-3 py-1.5 text-xs font-bold text-cyan-800 dark:text-cyan-100 focus:ring-2 focus:ring-cyan-500 outline-none transition-all cursor-pointer">
+                    <option value="">Select Target...</option>
+                    {% for cat in template.custom_categories %}
+                        <option value="{{ cat }}">{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            
+            <div id="updateReasonContainer" class="hidden w-64 animate-in fade-in zoom-in-95">
+                <label class="block text-[9px] font-black text-amber-600 dark:text-amber-500 uppercase tracking-widest mb-1 flex items-center gap-1"><i class="fa-solid fa-code-merge"></i> Overwrite Reason</label>
+                <input type="text" id="updateReasonInput" placeholder="Data exists. Explain edit..." class="w-full bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-amber-500 outline-none transition-all text-amber-900 dark:text-amber-100 placeholder-amber-700/50">
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3 w-full lg:w-auto justify-end">
+            <input type="file" id="fileInput" class="hidden" accept="image/*,application/pdf">
+            <button onclick="document.getElementById('fileInput').click()" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-black uppercase tracking-widest px-4 py-2 rounded-lg text-[10px] transition-all border border-slate-200 dark:border-slate-700 flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-image text-cyan-500"></i> Attach Scan
+            </button>
+
+            <div id="imgThumbnailContainer" class="hidden relative group h-8 w-12 rounded border border-slate-300 dark:border-slate-600 overflow-hidden shrink-0 cursor-pointer">
+                <img id="thumbnailImg" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center">
+                    <i class="fa-solid fa-magnifying-glass text-white text-xs"></i>
+                </div>
+            </div>
+
+            <div class="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
+
+            <button id="extractBtn" onclick="runExtraction()" class="bg-slate-900 dark:bg-cyan-600 hover:bg-cyan-600 dark:hover:bg-cyan-500 text-white font-black uppercase tracking-widest px-5 py-2 rounded-lg text-[10px] shadow-md transition-all flex items-center gap-2 whitespace-nowrap disabled:opacity-50">
+                <i class="fa-solid fa-wand-magic-sparkles text-cyan-300 dark:text-white"></i> Run OCR
+            </button>
+            
+            <button onclick="saveRecord()" class="bg-emerald-500 hover:bg-emerald-400 text-white font-black uppercase tracking-widest px-5 py-2 rounded-lg text-[10px] shadow-md transition-all flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-cloud-arrow-up"></i> Verify & Save
+            </button>
+        </div>
+    </div>
+
+    <div class="mt-6 bg-white dark:bg-[#0b1121] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm relative">
+        <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 flex justify-center rounded-t-2xl">
+            <span class="text-[9px] font-black uppercase tracking-widest text-slate-400"><i class="fa-solid fa-table text-cyan-500 mr-1"></i> Digital Twin Workspace</span>
+        </div>
+        
+        <div class="overflow-x-auto custom-scrollbar p-6 md:p-8 bg-slate-50/30 dark:bg-transparent rounded-b-2xl">
+            <div id="documentContainer" class="w-full">
+                {{ template.html_layout|safe }}
+            </div>
+        </div>
+    </div>
+</div>
+
+{{ template.ai_prompt_schema|json_script:"ai-schema-data" }}
+{{ existing_dates_json|json_script:"existing-dates-data" }}
+
+<script>
+    // 1. Data Bootstrap
+    let expectedSchema = {};
+    try {
+        const schemaRaw = document.getElementById('ai-schema-data').textContent;
+        if (schemaRaw && schemaRaw !== 'null' && schemaRaw !== '""') { expectedSchema = JSON.parse(schemaRaw); }
+    } catch (e) { console.warn("Schema Error:", e); }
+
+    const existingDatesRaw = document.getElementById('existing-dates-data').textContent;
+    let existingDates = [];
+    try { 
+        existingDates = JSON.parse(existingDatesRaw); 
+        if(typeof existingDates === 'string') existingDates = JSON.parse(existingDates);
+    } catch(e) { console.error("Date Bootstrap Error:", e); }
+    
+    let b64 = null; let mime = null;
+
+    // 2. Lifecycle
+    window.onload = () => {
+        const dateInput = document.getElementById('manualDateInput');
+        dateInput.valueAsDate = new Date();
+        checkExistingRecord();
+    };
+
+    document.getElementById('manualDateInput').addEventListener('change', checkExistingRecord);
+
+    function checkExistingRecord() {
+        const selectedDate = document.getElementById('manualDateInput').value;
+        const reasonContainer = document.getElementById('updateReasonContainer');
+        if (existingDates.includes(selectedDate)) reasonContainer.classList.remove('hidden');
+        else reasonContainer.classList.add('hidden');
+    }
+
+    // 3. File Handling
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            b64 = ev.target.result.split(',')[1]; mime = file.type;
+            document.getElementById('thumbnailImg').src = ev.target.result;
+            document.getElementById('imgThumbnailContainer').classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // 4. THE AI EXTRACTION PIPELINE
+    async function runExtraction() {
+        if(!b64) return alert("Please Attach a Scan first.");
+        const btn = document.getElementById('extractBtn');
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Running OCR...`; 
+        btn.disabled = true;
+
+        const apiKey = "REDACTED"; 
+        const customPromptRules = `{{ template.custom_extraction_prompt|escapejs }}`;
+        
+        const prompt = `
+        You are an expert Data Extraction OCR.
+        Extract handwritten/typed data from this document. 
+        Match EXACT keys in this JSON schema: ${JSON.stringify(expectedSchema)}. 
+        Use empty strings "" for blank cells. 
+        ${customPromptRules ? '\nCRITICAL RULES FOR THIS SPECIFIC DOCUMENT: ' + customPromptRules : ''}
+        Return ONLY pure JSON. No markdown.
+        `;
+
+        try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mime, data: b64 } }] }],
+                    generationConfig: { response_mime_type: "application/json" } 
+                })
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error.message);
+
+            let resultText = data.candidates[0].content.parts[0].text;
+            const extractedData = JSON.parse(resultText.replace(/```json|```/g, ""));
+            
+            mapJSONtoDOM(extractedData);
+            
+            if(extractedData.nexus_global_date) {
+                document.getElementById('manualDateInput').value = extractedData.nexus_global_date;
+                checkExistingRecord();
+            }
+
+            btn.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> Done`;
+            setTimeout(() => { btn.innerHTML = originalContent; }, 2000);
+        } catch(e) { 
+            alert("Extraction failed: " + e.message); 
+            btn.innerHTML = originalContent; 
+        } finally { btn.disabled = false; }
+    }
+
+    function mapJSONtoDOM(data) {
+        for (const key in data) {
+            if (Array.isArray(data[key])) {
+                
+                // We have an array of rows from the AI
+                data[key].forEach((rowObj, index) => {
+                    
+                    // SMART MAPPING LOGIC:
+                    // Look for a key that implies row identity (like machine_no, serial_no, sr_no, etc.)
+                    let rowIdentityValue = null;
+                    for (const colKey in rowObj) {
+                        if (colKey.includes('machine_no') || colKey.includes('sr_no') || colKey.includes('serial')) {
+                            rowIdentityValue = rowObj[colKey];
+                            break;
+                        }
+                    }
+                    
+                    // If we found an identity value (e.g., "8"), use it. Otherwise, fallback to strict order (index + 1).
+                    // We remove any letters/spaces to just get the number (e.g., "M/C 8" -> "8")
+                    let targetRowIndex = rowIdentityValue ? parseInt(String(rowIdentityValue).replace(/\D/g, '')) : (index + 1);
+                    
+                    // Safety check: if parsing failed, fallback to strict order
+                    if (isNaN(targetRowIndex)) targetRowIndex = index + 1;
+
+                    // Now map the data to the calculated target row
+                    for (const colKey in rowObj) {
+                        // The AI might return the key as "machine_no" or "row_1_machine_no". We normalize it.
+                        let cleanColKey = colKey.replace(/^row_\d+_/, '');
+                        
+                        let el = document.getElementById(`row_${targetRowIndex}_${cleanColKey}`);
+                        
+                        if (el) {
+                            el.innerText = rowObj[colKey];
+                        } else {
+                            // Secondary Fallback: If the exact ID wasn't found, try a fuzzy match 
+                            // (Useful if the AI messed up the schema keys slightly)
+                            let fuzzyEl = document.querySelector(`[id$="_${cleanColKey}"]`);
+                            if(fuzzyEl && fuzzyEl.id.startsWith(`row_${targetRowIndex}_`)) {
+                                fuzzyEl.innerText = rowObj[colKey];
+                            }
+                        }
+                    }
+                });
+            } else {
+                // Standard flat fields (Date, Shift, Comments, Signatures)
+                let el = document.getElementById(key);
+                if (el) el.innerText = data[key];
+            }
+        }
+    }
+    
+    // 5. Persistence
+    async function saveRecord() {
+        const finalData = {};
+        document.querySelectorAll('.editable-cell').forEach(cell => {
+            if(cell.id) finalData[cell.id] = cell.innerText.trim();
+        });
+
+        const manualDate = document.getElementById('manualDateInput').value;
+        const updateReason = document.getElementById('updateReasonInput').value || "Initial Record Entry";
+        
+        // Ensure Category is selected if required
+        let customCategory = null;
+        const catInput = document.getElementById('customCategoryInput');
+        if(catInput) {
+            customCategory = catInput.value;
+            if(!customCategory) return alert("Please select a Category Target before saving.");
+        }
+
+        if (!manualDate) return alert("Select a record date first.");
+
+        const res = await fetch("{% url 'records:scan_record' template.id %}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify({ 
+                extracted_data: finalData, 
+                manual_date: manualDate, 
+                update_reason: updateReason,
+                custom_category: customCategory
+            })
+        });
+        
+        if(res.ok) window.location.href = "{% url 'records:template_records' template.id %}";
+        else alert("Persistence failed.");
+    }
+</script>
+{% endblock %}
+{% endwith %}

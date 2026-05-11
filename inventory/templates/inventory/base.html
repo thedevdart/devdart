@@ -1,0 +1,228 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucro Hub | Inventory</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Quicksand:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="/media/icons/favicon.png" type="image/png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'inventory/css/base.css' %}?v=1.6">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { 
+                        sans: ['"Outfit"', 'sans-serif'], 
+                        heading: ['"Quicksand"', 'sans-serif'],
+                        fredoka: ['"Fredoka"', 'sans-serif']
+                    },
+                    colors: { 
+                        primary: '#FF8965', 
+                        accent: '#96CD1E',  
+                        brand: '#01444e',   
+                        slate: {
+                            50: '#f2f8f9', 100: '#dfedef', 200: '#c1d9dd', 300: '#99bcc2',
+                            400: '#6b9aa1', 500: '#487c84', 600: '#34636b', 700: '#2b5057',
+                            800: '#02343b', 900: '#012126', 950: '#001215',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Automatically force all headers to Quicksand */
+        h1, h2, h3, h4, h5, h6 { font-family: 'Quicksand', sans-serif !important; }
+        
+        /* Strict failsafe to guarantee the calendar ghosting never occurs */
+        .flatpickr-calendar:not(.open) { display: none !important; visibility: hidden !important; z-index: -9999 !important; }
+        
+        /* Smooth Crossfade for Sidebar Logo */
+        .logo-expanded, .logo-collapsed { transition: opacity 0.3s ease, visibility 0.3s ease; }
+        
+        .sidebar-collapsed .logo-expanded { opacity: 0; visibility: hidden; pointer-events: none; }
+        .sidebar-collapsed .logo-collapsed { opacity: 1; visibility: visible; pointer-events: auto; }
+        
+        html:not(.sidebar-collapsed) .logo-expanded { opacity: 1; visibility: visible; pointer-events: auto; }
+        html:not(.sidebar-collapsed) .logo-collapsed { opacity: 0; visibility: hidden; pointer-events: none; }
+    </style>
+
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else { document.documentElement.classList.remove('dark'); }
+        
+        if (localStorage.getItem('sidebarCollapsed') === 'true') {
+            document.documentElement.classList.add('sidebar-collapsed');
+        }
+    </script>
+</head>
+
+<body class="bg-slate-50 dark:bg-slate-950 font-sans text-slate-800 dark:text-slate-200 antialiased selection:bg-accent/30 dark:selection:text-accent">
+
+    <div id="top-loader"></div>
+
+    <div class="flex flex-col md:flex-row h-screen overflow-hidden">
+        
+        <div class="md:hidden flex items-center justify-between bg-brand h-14 px-4 border-b border-white/5 shrink-0 z-40 shadow-sm">
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-1.5">
+                    <img src="/media/logos/lucronosub.png" alt="Lucro" class="h-4 w-auto object-contain">
+                    <span class="font-fredoka text-white text-[20px] leading-none translate-y-[1px]">Hub</span>
+                </div>
+            </div>
+            <button id="mobile-menu-btn" class="text-white/70 hover:text-white transition-colors p-2 active:scale-95">
+                <i class="fa-solid fa-bars text-xl"></i>
+            </button>
+        </div>
+
+        <div id="mobile-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[90] hidden md:hidden opacity-0 transition-opacity duration-300"></div>
+
+        <aside id="main-sidebar" class="fixed md:relative inset-y-0 left-0 z-[100] transform -translate-x-full md:translate-x-0 flex flex-col bg-brand border-r border-brand shrink-0 h-full transition-transform md:transition-[width] duration-300 shadow-xl md:shadow-none">
+            
+            <button id="sidebar-toggle" class="hidden md:flex absolute -right-3 top-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-brand dark:text-accent hover:text-accent w-6 h-6 rounded-sm items-center justify-center shadow-md z-50 transition-colors cursor-pointer">
+                <i id="sidebar-toggle-icon" class="fa-solid fa-chevron-left text-[10px] transition-transform duration-200"></i>
+            </button>
+
+            <div class="h-24 w-full shrink-0 border-b border-white/5 relative flex items-center">
+                
+                <div class="logo-expanded absolute inset-0 flex flex-col justify-center px-6 w-full">
+                    <div class="flex items-center gap-2">
+                        <img src="/media/logos/lucronosub.png" alt="Lucro" class="h-[22px] w-auto object-contain">
+                        <span class="font-fredoka text-white text-[26px] leading-none tracking-wide translate-y-[2px]">Hub</span>
+                    </div>
+                    <span class="text-accent text-[9.5px] font-black uppercase tracking-[0.25em] leading-none mt-2 ml-0.5">Inventory</span>
+                </div>
+
+                <div class="logo-collapsed absolute inset-0 flex items-center justify-center w-full">
+                    <div class="w-9 h-9 flex items-center justify-center shrink-0">
+                        <img src="/media/logos/lucrologo.png" alt="L" class="w-full h-full object-contain">
+                    </div>
+                </div>
+
+            </div>
+
+            <nav class="flex-1 py-4 overflow-y-auto custom-scrollbar relative z-10 flex flex-col">
+                
+                <a href="{% url 'dashboard' %}" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors {% if request.resolver_match.url_name == 'dashboard' %} bg-white/10 text-white {% else %} text-white/60 hover:text-white hover:bg-white/5 {% endif %}">
+                    <i class="fa-solid fa-cloud-arrow-up text-lg w-5 text-center shrink-0 {% if request.resolver_match.url_name == 'dashboard' %}text-accent{% endif %}"></i>
+                    <span class="sidebar-text text-[13px] font-semibold tracking-wide">Extract Stock</span>
+                </a>
+                
+                <a href="{% url 'daily_reports_list' %}" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors {% if 'daily-reports' in request.path %} bg-white/10 text-white {% else %} text-white/60 hover:text-white hover:bg-white/5 {% endif %}">
+                    <i class="fa-solid fa-chart-line text-lg w-5 text-center shrink-0 {% if 'daily-reports' in request.path %}text-accent{% endif %}"></i>
+                    <span class="sidebar-text text-[13px] font-semibold tracking-wide">Daily Reports</span>
+                </a>
+                
+                <a href="{% url 'centers_list' %}" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors {% if request.resolver_match.url_name == 'centers_list' or request.resolver_match.url_name == 'center_history' %} bg-white/10 text-white {% else %} text-white/60 hover:text-white hover:bg-white/5 {% endif %}">
+                    <i class="fa-solid fa-building text-lg w-5 text-center shrink-0 {% if request.resolver_match.url_name == 'centers_list' or request.resolver_match.url_name == 'center_history' %}text-accent{% endif %}"></i>
+                    <span class="sidebar-text text-[13px] font-semibold tracking-wide">Centers Setup</span>
+                </a>
+                
+                <a href="{% url 'custom_reports_landing' %}" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors {% if 'custom-reports' in request.path %} bg-white/10 text-white {% else %} text-white/60 hover:text-white hover:bg-white/5 {% endif %}">
+                    <i class="fa-solid fa-chart-pie text-lg w-5 text-center shrink-0 {% if 'custom-reports' in request.path %}text-accent{% endif %}"></i>
+                    <span class="sidebar-text text-[13px] font-semibold tracking-wide">Custom Reports</span>
+                </a>
+                
+                <a href="{% url 'sorting_report' %}" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors {% if request.resolver_match.url_name == 'sorting_report' or request.resolver_match.url_name == 'sorting' %} bg-white/10 text-white {% else %} text-white/60 hover:text-white hover:bg-white/5 {% endif %}">
+                    <i class="fa-solid fa-filter text-lg w-5 text-center shrink-0 {% if request.resolver_match.url_name == 'sorting_report' or request.resolver_match.url_name == 'sorting' %}text-accent{% endif %}"></i>
+                    <span class="sidebar-text text-[13px] font-semibold tracking-wide">Sorting Engine</span>
+                </a>
+                
+                <a href="{% url 'template_builder_list' %}" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors {% if request.resolver_match.url_name == 'template_builder_list' %} bg-white/10 text-white {% else %} text-white/60 hover:text-white hover:bg-white/5 {% endif %}">
+                    <i class="fa-solid fa-clipboard-list text-lg w-5 text-center shrink-0 {% if request.resolver_match.url_name == 'template_builder_list' %}text-accent{% endif %}"></i>
+                    <span class="sidebar-text text-[13px] font-semibold tracking-wide">Templates</span>
+                </a>
+                
+                <a href="{% url 'whatsapp_tracker' %}" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors {% if request.resolver_match.url_name == 'whatsapp_tracker' %} bg-white/10 text-white {% else %} text-white/60 hover:text-white hover:bg-white/5 {% endif %}">
+                    <i class="fa-brands fa-whatsapp text-lg w-5 text-center shrink-0 {% if request.resolver_match.url_name == 'whatsapp_tracker' %}text-primary{% else %}text-white/60{% endif %}"></i>
+                    <span class="sidebar-text text-[13px] font-semibold tracking-wide">WhatsApp Sync</span>
+                </a>
+            </nav>
+
+            <div class="p-4 border-t border-white/5 bg-black/10">
+                
+                <button onclick="toggleTheme()" class="nav-item flex items-center gap-4 w-full px-4 py-3 text-white/60 hover:text-white hover:bg-white/5 transition-colors rounded-md active:scale-95 group border border-transparent">
+                    <div class="w-6 h-6 flex items-center justify-center shrink-0 group-hover:text-accent transition-colors"><i id="theme-icon" class="fa-solid fa-moon text-lg"></i></div>
+                    <span id="theme-text" class="sidebar-text text-[13px] font-semibold tracking-wide">Toggle Theme</span>
+                </button>
+
+                <a href="{% url 'user_profile' %}" class="nav-link nav-item flex items-center gap-4 px-4 py-3 mt-1 hover:bg-white/5 transition-colors rounded-md active:scale-95 border border-transparent">
+                    <div class="w-6 h-6 bg-white/5 border border-white/10 flex items-center justify-center font-bold text-[11px] text-white shrink-0 rounded-sm uppercase tracking-widest">{{ request.user.username|make_list|first }}</div>
+                    <div class="sidebar-text flex-1 min-w-0"><p class="text-[13px] font-semibold text-white truncate">{{ request.user.username }}</p></div>
+                </a>
+            </div>
+        </aside>
+
+        <main class="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar p-4 md:p-8 lg:p-10 relative bg-slate-50 dark:bg-slate-950">
+            {% block content %}{% endblock %}
+        </main>
+
+    </div>
+
+    <div id="saveSuccessOverlay" class="fixed inset-0 z-[9999] hidden flex items-center justify-center bg-brand/95 backdrop-blur-md pointer-events-none transition-opacity duration-300 opacity-0">
+        <div class="success-content text-center flex flex-col items-center gap-5 transform transition-all duration-300 scale-95 opacity-0">
+            <img src="/media/logos/lucrologo.png" alt="Lucro" class="w-24 h-24 object-contain spin-heavy drop-shadow-2xl">
+            <h2 class="text-4xl font-bold text-white tracking-widest uppercase">Saved</h2>
+        </div>
+    </div>
+
+    <script src="{% static 'inventory/js/base.js' %}?v=1.6"></script>
+    
+    <script>
+        // Instant Active Tab Feedback (Fixes the "lag" before page load)
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                // Don't intercept if they are trying to open in a new tab
+                if(e.ctrlKey || e.metaKey) return; 
+
+                document.querySelectorAll('.nav-link').forEach(l => {
+                    l.classList.remove('bg-white/10', 'text-white');
+                    l.classList.add('text-white/60');
+                    const icon = l.querySelector('i');
+                    if (icon) icon.classList.remove('text-accent', 'text-primary');
+                });
+                
+                this.classList.remove('text-white/60');
+                this.classList.add('bg-white/10', 'text-white');
+                const icon = this.querySelector('i');
+                if (icon) {
+                    if (this.classList.contains('whatsapp-link')) {
+                        icon.classList.add('text-primary');
+                    } else {
+                        icon.classList.add('text-accent');
+                    }
+                }
+            });
+        });
+
+        // Update global success overlay logic
+        window.showGlobalSuccess = function() {
+            const overlay = document.getElementById('saveSuccessOverlay');
+            if(overlay) {
+                overlay.classList.remove('hidden');
+                setTimeout(() => {
+                    overlay.classList.remove('opacity-0');
+                    overlay.firstElementChild.classList.remove('scale-95', 'opacity-0');
+                    overlay.firstElementChild.classList.add('scale-100', 'opacity-100');
+                }, 10);
+            }
+        };
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

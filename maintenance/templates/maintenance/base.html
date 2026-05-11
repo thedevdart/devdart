@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fixra | LT-Nexus</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6d5efc;
+            --primary-strong: #5444f2;
+            --primary-soft: rgba(109, 94, 252, 0.14);
+            --secondary: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg-body: #eef2ff;
+            --bg-sidebar: rgba(15, 23, 42, 0.94);
+            --bg-sidebar-card: rgba(255, 255, 255, 0.06);
+            --bg-card: rgba(255, 255, 255, 0.92);
+            --bg-card-strong: #ffffff;
+            --bg-input: rgba(255, 255, 255, 0.86);
+            --bg-muted: #f8fafc;
+            --text-main: #0f172a;
+            --text-soft: #475569;
+            --text-muted: #64748b;
+            --text-inverse: #f8fafc;
+            --border-color: rgba(148, 163, 184, 0.24);
+            --shadow-sm: 0 10px 30px rgba(15, 23, 42, 0.06);
+            --shadow-md: 0 18px 45px rgba(15, 23, 42, 0.10);
+            --shadow-lg: 0 24px 60px rgba(15, 23, 42, 0.16);
+            --accent-success-bg: rgba(34, 197, 94, 0.12);
+            --accent-success-text: #15803d;
+            --accent-danger-bg: rgba(239, 68, 68, 0.12);
+            --accent-danger-text: #b91c1c;
+            --accent-warning-bg: rgba(245, 158, 11, 0.14);
+            --accent-warning-text: #b45309;
+            --sidebar-width: 280px;
+            --radius-sm: 0.85rem;
+            --radius-md: 1.25rem;
+            --radius-lg: 1.75rem;
+        }
+
+        [data-theme="dark"] {
+            --primary: #8b7fff;
+            --primary-strong: #7266ff;
+            --primary-soft: rgba(139, 127, 255, 0.18);
+            --secondary: #4ade80;
+            --danger: #fb7185;
+            --warning: #fbbf24;
+            --bg-body: #020617;
+            --bg-sidebar: rgba(2, 6, 23, 0.94);
+            --bg-sidebar-card: rgba(255, 255, 255, 0.04);
+            --bg-card: rgba(15, 23, 42, 0.84);
+            --bg-card-strong: #111c31;
+            --bg-input: rgba(2, 6, 23, 0.72);
+            --bg-muted: #0f172a;
+            --text-main: #e2e8f0;
+            --text-soft: #cbd5e1;
+            --text-muted: #94a3b8;
+            --text-inverse: #f8fafc;
+            --border-color: rgba(148, 163, 184, 0.16);
+            --shadow-sm: 0 10px 25px rgba(0, 0, 0, 0.22);
+            --shadow-md: 0 20px 45px rgba(0, 0, 0, 0.28);
+            --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.32);
+            --accent-success-bg: rgba(74, 222, 128, 0.16);
+            --accent-success-text: #4ade80;
+            --accent-danger-bg: rgba(251, 113, 133, 0.16);
+            --accent-danger-text: #fb7185;
+            --accent-warning-bg: rgba(251, 191, 36, 0.16);
+            --accent-warning-text: #fbbf24;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            font-family: 'Inter', sans-serif;
+            color: var(--text-main);
+            background:
+                radial-gradient(circle at top left, rgba(109, 94, 252, 0.16), transparent 30%),
+                radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.10), transparent 28%),
+                var(--bg-body);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        a { text-decoration: none; }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            position: fixed;
+            inset: 0 auto 0 0;
+            height: 100vh;
+            padding: 24px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            background: var(--bg-sidebar);
+            color: var(--text-inverse);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: var(--shadow-lg);
+            z-index: 1000;
+        }
+
+        .sidebar-brand {
+            padding: 12px 14px;
+            border-radius: var(--radius-md);
+            background: linear-gradient(135deg, rgba(109, 94, 252, 0.22), rgba(6, 182, 212, 0.12));
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
+            display: grid;
+            place-items: center;
+            background: rgba(255, 255, 255, 0.14);
+            font-size: 1.2rem;
+        }
+
+        .brand-meta small {
+            display: block;
+            color: rgba(255,255,255,0.65);
+            font-size: 0.75rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .brand-meta strong {
+            display: block;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .sidebar-section {
+            padding: 0 10px;
+        }
+
+        .sidebar-section-label {
+            color: rgba(255,255,255,0.45);
+            font-size: 0.74rem;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            margin: 6px 0 10px;
+        }
+
+        .nav-link {
+            color: rgba(255, 255, 255, 0.76);
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-radius: 14px;
+            margin-bottom: 8px;
+            font-weight: 600;
+            transition: 0.25s ease;
+        }
+
+        .nav-link:hover {
+            color: #fff;
+            background: var(--bg-sidebar-card);
+            transform: translateX(2px);
+        }
+
+        .nav-link.active {
+            color: #fff;
+            background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+            box-shadow: 0 14px 32px rgba(109, 94, 252, 0.32);
+        }
+
+        .nav-link.text-danger {
+            color: #fca5a5 !important;
+        }
+
+        .nav-link i {
+            width: 18px;
+            text-align: center;
+        }
+
+        .sidebar-footer-card {
+            margin: auto 10px 0;
+            padding: 16px;
+            border-radius: var(--radius-md);
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .sidebar-footer-card p {
+            margin: 0;
+            color: rgba(255,255,255,0.7);
+            font-size: 0.84rem;
+        }
+
+        .main-content {
+            margin-left: var(--sidebar-width);
+            width: calc(100% - var(--sidebar-width));
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .top-navbar {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            padding: 18px 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+
+        .navbar-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            margin: 0;
+            color: var(--text-main);
+        }
+
+        .navbar-subtitle {
+            margin: 4px 0 0;
+            color: var(--text-muted);
+            font-size: 0.92rem;
+        }
+
+        .navbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .quick-chip,
+        .theme-toggle {
+            border: 1px solid var(--border-color);
+            background: var(--bg-muted);
+            color: var(--text-soft);
+            height: 44px;
+            min-width: 44px;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 14px;
+            transition: 0.2s ease;
+        }
+
+        .quick-chip:hover,
+        .theme-toggle:hover {
+            transform: translateY(-1px);
+            border-color: rgba(109, 94, 252, 0.3);
+            color: var(--primary);
+        }
+
+        .sidebar-theme-toggle {
+            width: 100%;
+            justify-content: flex-start;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.82);
+        }
+
+        .sidebar-theme-toggle:hover {
+            color: #fff;
+            background: var(--bg-sidebar-card);
+            border-color: rgba(255, 255, 255, 0.14);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px;
+            border-radius: 16px;
+            background: var(--bg-muted);
+            border: 1px solid var(--border-color);
+        }
+
+        .user-meta {
+            line-height: 1.1;
+        }
+
+        .user-meta strong {
+            display: block;
+            font-size: 0.9rem;
+            color: var(--text-main);
+        }
+
+        .user-meta span {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .user-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            object-fit: cover;
+            border: 2px solid rgba(109, 94, 252, 0.18);
+        }
+
+        .page-shell {
+            background: rgba(255, 255, 255, 0.28);
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            border-radius: calc(var(--radius-lg) + 0.25rem);
+            padding: 22px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+        }
+
+        .saas-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
+            padding: 1.5rem;
+        }
+
+        .saas-input,
+        .saas-select,
+        textarea.saas-input {
+            display: block;
+            width: 100%;
+            padding: 0.85rem 1rem;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            background-color: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 0.95rem;
+            transition: 0.2s ease;
+        }
+
+        .saas-input:focus,
+        .saas-select:focus,
+        textarea.saas-input:focus {
+            border-color: rgba(109, 94, 252, 0.55);
+            outline: 0;
+            box-shadow: 0 0 0 4px rgba(109, 94, 252, 0.12);
+        }
+
+        .saas-label {
+            font-weight: 700;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.6rem;
+            display: block;
+        }
+
+        .alert {
+            border: none;
+            border-radius: 1rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .animate-fade-in { animation: fadeIn 0.45s ease-out forwards; }
+        .animate-slide-up { animation: slideUp 0.45s ease-out forwards; }
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
+        .delay-300 { animation-delay: 0.3s; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(18px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 991px) {
+            .sidebar {
+                width: 88px;
+                padding: 16px 12px;
+            }
+
+            .brand-meta,
+            .sidebar-section-label,
+            .nav-link span,
+            .sidebar-footer-card {
+                display: none;
+            }
+
+            .nav-link {
+                justify-content: center;
+                padding: 12px 10px;
+            }
+
+            .main-content {
+                margin-left: 88px;
+                width: calc(100% - 88px);
+            }
+        }
+
+        @media (max-width: 767px) {
+            body {
+                display: block;
+            }
+
+            .sidebar {
+                position: sticky;
+                width: 100%;
+                height: auto;
+                inset: 0;
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+            }
+
+            .sidebar nav {
+                width: 100%;
+                display: flex;
+                overflow-x: auto;
+                gap: 8px;
+            }
+
+            .nav-link {
+                margin-bottom: 0;
+                white-space: nowrap;
+            }
+
+            .brand-meta,
+            .nav-link span {
+                display: block;
+            }
+
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+                padding: 16px;
+            }
+
+            .top-navbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .navbar-actions {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+
+            .page-shell {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">
+                <i class="fas fa-screwdriver-wrench"></i>
+            </div>
+            <div class="brand-meta">
+                <small>LT-Nexus</small>
+                <strong>Fixra</strong>
+            </div>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-section-label">Workspace</div>
+            <nav>
+                <a href="{% url 'maintenance:dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{% url 'maintenance:add_new_asset' %}" class="nav-link {% if request.resolver_match.url_name == 'add_new_asset' %}active{% endif %}">
+                    <i class="fas fa-plus-circle"></i>
+                    <span>Add Asset</span>
+                </a>
+                <a href="#" class="nav-link {% if request.resolver_match.url_name == 'service_history' %}active{% endif %}">
+                    <i class="fas fa-history"></i>
+                    <span>Service History</span>
+                </a>
+                <a href="#" class="nav-link">
+                    <i class="fas fa-shield-halved"></i>
+                    <span>Safety</span>
+                </a>
+            </nav>
+        </div>
+
+        <div class="sidebar-section mt-auto">
+            <button type="button" class="theme-toggle sidebar-theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+                <i class="fas fa-moon" id="theme-icon"></i>
+                <span>Theme</span>
+            </button>
+        </div>
+
+        <div class="sidebar-section">
+            <form id="logout-form" action="{% url 'logout' %}" method="POST" style="display:none;">
+                {% csrf_token %}
+            </form>
+            <a href="javascript:void(0)" onclick="document.getElementById('logout-form').submit();" class="nav-link text-danger">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        
+        <div class="top-navbar">
+            <div>
+                <h1 class="navbar-title">Maintenance Control Center</h1>
+                <p class="navbar-subtitle">Smart monitoring for service schedules, asset health, and field updates.</p>
+            </div>
+
+            <!-- GLOBAL NOTIFICATION BELL -->
+            <a href="{% url 'maintenance:notifications_list' %}" class="relative group mr-4 flex items-center text-slate-600 hover:text-blue-600 transition-colors focus:outline-none" style="text-decoration: none; color: inherit;">
+                <i class="fa-solid fa-bell text-xl"></i>
+                {% if global_notifications %}
+                    <span class="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white animate-pulse">
+                        {{ global_notifications|length }}
+                    </span>
+                {% endif %}
+            </a>
+
+            <div class="navbar-actions">
+                <div class="user-profile">
+                    <div class="user-meta">
+                        <strong>Admin</strong>
+                        <span>Maintenance Desk</span>
+                    </div>
+                    <img src="https://ui-avatars.com/api/?name=Maintenance+Admin&background=6d5efc&color=fff" alt="Admin avatar" class="user-avatar">
+                </div>
+            </div>
+        </div>
+
+        <div class="page-shell animate-fade-in">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function toggleTheme() {
+            const body = document.body;
+            const icon = document.getElementById('theme-icon');
+            const currentTheme = body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            body.setAttribute('data-theme', newTheme);
+            icon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            localStorage.setItem('theme', newTheme);
+        }
+
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.body.setAttribute('data-theme', savedTheme);
+        document.getElementById('theme-icon').className = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+    </script>
+</body>
+</html>

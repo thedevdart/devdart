@@ -1,0 +1,118 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="max-w-[100rem] mx-auto py-4 font-sans relative flex flex-col h-[calc(100vh-2rem)] min-h-[700px]">
+    
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4 shrink-0">
+        <div>
+            <h1 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase flex items-center gap-3 font-heading">
+                <i class="fa-solid fa-network-wired text-primary"></i>
+                Centers Overview
+            </h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-bold mt-2 uppercase tracking-widest">Monitoring {{ centers|length }} active center locations</p>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <a href="{% url 'export_center_aliases' %}" class="flex-1 md:flex-none inline-flex justify-center items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-black py-2.5 px-5 rounded-md hover:border-accent hover:text-accent shadow-sm transition-all text-[11px] uppercase tracking-widest active:scale-95">
+                <i class="fa-solid fa-file-export"></i> Export Aliases
+            </a>
+
+            <a href="{% url 'manage_centers' %}" class="flex-1 md:flex-none inline-flex justify-center items-center gap-2 bg-primary hover:bg-primary/90 text-white font-black px-6 py-2.5 rounded-md shadow-sm transition-all text-[11px] uppercase tracking-widest active:scale-95 border border-transparent">
+                <i class="fa-solid fa-gear"></i> Manage Centers
+            </a>
+        </div>
+    </div>
+
+    <div class="flex-1 min-h-0 flex flex-col relative pb-4">
+        
+        <div class="bg-white dark:bg-slate-900 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col h-fit max-h-full w-full overflow-hidden transition-colors duration-300">
+            
+            <div class="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 shrink-0">
+                <div class="relative max-w-md">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" id="centerSearch" placeholder="SEARCH CENTERS..." class="w-full pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all text-[11px] font-black uppercase tracking-widest shadow-inner placeholder:text-slate-400">
+                </div>
+            </div>
+
+            <div class="overflow-auto custom-scrollbar w-full">
+                <table class="w-full text-left border-collapse min-w-[900px]">
+                    
+                    <thead class="bg-black text-white uppercase text-[10px] font-black tracking-widest sticky top-0 z-10 shadow-md">
+                        <tr>
+                            <th class="px-6 py-4 w-1/4">Location Name</th>
+                            <th class="px-6 py-4 text-right"><i class="fa-solid fa-box-open mr-2 text-primary opacity-80"></i>Raw Materials</th>
+                            <th class="px-6 py-4 text-right"><i class="fa-solid fa-boxes-stacked mr-2 text-accent opacity-80"></i>Finished Goods</th>
+                            <th class="px-6 py-4 text-center">Latest Report</th>
+                            <th class="px-6 py-4 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    
+                    <tbody id="centerTableBody" class="divide-y divide-slate-100 dark:divide-slate-800/50 bg-white dark:bg-slate-900 text-[12px]">
+                        {% for item in centers %}
+                        <tr class="center-row group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                            
+                            <td class="px-6 py-4">
+                                <a href="{% url 'center_history' item.obj.id %}" class="center-name-text font-black text-slate-900 dark:text-white hover:text-primary dark:hover:text-primary transition-colors flex items-center gap-2 uppercase tracking-wider">
+                                    {{ item.obj.name }}
+                                    <i class="fa-solid fa-arrow-right text-[10px] opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-primary"></i>
+                                </a>
+                            </td>
+                            
+                            <td class="px-6 py-4 text-right font-mono font-bold text-slate-700 dark:text-slate-300">
+                                {{ item.raw_total|floatformat:0 }}
+                            </td>
+
+                            <td class="px-6 py-4 text-right font-mono font-bold text-slate-700 dark:text-slate-300">
+                                {{ item.finished_total|floatformat:0 }}
+                            </td>
+
+                            <td class="px-6 py-4 text-center">
+                                {% if item.last_date %}
+                                    <span class="inline-flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2.5 py-1 rounded-sm text-[9px] uppercase tracking-widest font-black shadow-sm border border-slate-200 dark:border-slate-700">
+                                        <i class="fa-regular fa-calendar-check text-accent"></i> {{ item.last_date }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-slate-400 dark:text-slate-500 text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5">
+                                        <i class="fa-regular fa-clock opacity-50"></i> No reports
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td class="px-6 py-4">
+                                <div class="flex items-center justify-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                    
+                                    <a href="{% url 'center_template_builder' item.obj.id %}" class="text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-brand hover:text-accent dark:hover:bg-brand dark:hover:text-accent w-8 h-8 rounded-md transition-colors flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95" title="Template Builder">
+                                        <i class="fa-solid fa-list-check text-xs"></i>
+                                    </a>
+
+                                    <a href="{% url 'center_aliases' item.obj.id %}" class="text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-brand hover:text-accent dark:hover:bg-brand dark:hover:text-accent w-8 h-8 rounded-md transition-colors flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95" title="Learned Aliases">
+                                        <i class="fa-solid fa-brain text-xs"></i>
+                                    </a>
+
+                                    {% if item.sheet_id %}
+                                    <a href="{% url 'download_sheet_csv' item.sheet_id %}" class="text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-accent hover:text-brand dark:hover:bg-accent dark:hover:text-brand w-8 h-8 rounded-md transition-colors flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95" title="Download Latest Report">
+                                        <i class="fa-solid fa-download text-xs"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="p-16 text-center text-slate-400 dark:text-slate-600 bg-slate-50/50 dark:bg-slate-950/50">
+                                <i class="fa-solid fa-network-wired text-4xl mb-4 opacity-30"></i>
+                                <p class="font-black text-sm uppercase tracking-widest text-slate-500 dark:text-slate-400">No centers configured</p>
+                                <p class="text-[11px] mt-2 font-bold tracking-wide">Head over to the Manage Centers page to add your first location</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'inventory/js/centers_list.js' %}?v=1.1"></script>
+{% endblock %}

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In | LT Nexus</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { 
+                        sans: ['"Nunito"', 'sans-serif'],
+                        jakarta: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        fredoka: ['Fredoka', 'sans-serif']
+                    },
+                    colors: { primary: '#FF8965', accent: '#96CD1E', brand: '#01444e' }
+                }
+            }
+        }
+    </script>
+
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+
+    <style>
+        /* Spinning Background Animation */
+        @keyframes slow-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .animate-slow-spin { animation: slow-spin 50s linear infinite; }
+
+        /* Error Shake Animation */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+        }
+        .animate-shake { animation: shake 0.3s ease-in-out; }
+
+        input:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0 30px transparent inset !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+        .dark input:-webkit-autofill { -webkit-text-fill-color: white !important; }
+    </style>
+</head>
+
+<body class="min-h-screen font-sans selection:bg-primary/20 selection:text-primary overflow-hidden bg-white dark:bg-[#05080f]">
+
+    <div class="flex min-h-screen">
+        
+        <div class="hidden lg:flex lg:w-1/2 bg-brand relative flex-col justify-center p-20 overflow-hidden border-r border-white/5">
+            <div class="absolute inset-0 opacity-10 pointer-events-none z-0">
+                <div class="absolute -top-[10%] -left-[10%] w-[80%] h-[80%] rounded-full bg-primary filter blur-[120px]"></div>
+            </div>
+
+            <div class="relative z-10">
+                <div class="flex items-center gap-3 text-primary font-bold tracking-[0.3em] uppercase text-[12px] mb-8 font-jakarta">
+                    <span class="w-12 h-[2px] bg-primary/100"></span>
+                    Lucro Hub APP
+                </div>
+                
+                <h1 class="text-[5rem] xl:text-[6.6rem] font-bold text-white leading-none mb-8 tracking-tighter uppercase">
+                    <span class="font-jakarta">LUCRO</span><br>
+                    <span class="text-accent font-fredoka tracking-tight normal-case flex items-center mt-2 font-normal text-[1.05em]">
+                        Invent<img src="/media/logos/lucrologo.png" alt="o" class="inline-block mx-[2px] w-[0.7em] h-[0.7em] object-contain translate-y-[20%]">ry.
+                    </span>
+                </h1>
+                
+                <div class="mt-12 pt-12 border-t border-white/10 max-w-lg">
+                    <p class="text-white/70 font-medium text-lg leading-relaxed">
+                        Transform physical stock reports into digital data with powerful, context-aware AI extraction. Monitor daily movements and generate custom analytical reports to seamlessly track production and dispatch.
+                    </p>
+                </div>
+            </div>
+
+            <div class="absolute bottom-12 left-20 z-10 flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.2em] font-jakarta">
+                <span class="flex items-center gap-2 text-white/60">
+                    Lucro 
+                    <div class="w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.8)] animate-pulse"></div>
+                </span>
+                <span class="flex items-center gap-2 text-white/60">
+                    Tattva 
+                    <div class="w-1.5 h-1.5 rounded-full bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.8)] animate-pulse" style="animation-delay: 1s;"></div>
+                </span>
+            </div>
+        </div>
+
+        <div class="w-full lg:w-1/2 flex flex-col items-center justify-center p-8 sm:p-12 relative bg-slate-50 dark:bg-[#0a0f18] z-20 overflow-hidden">
+            
+            <div class="absolute top-0 right-0 translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-25 z-0">
+                <img src="/media/logos/lucrologo2.png" alt="" class="w-[400px] lg:w-[700px] h-auto max-w-none animate-slow-spin">
+            </div>
+
+            <div class="absolute top-8 left-8 lg:hidden flex items-center z-30">
+                <span class="font-bold text-slate-900 dark:text-white uppercase tracking-widest text-[15px] flex items-center gap-2 font-jakarta">
+                    NEXUS
+                    <span class="text-accent font-fredoka tracking-tight normal-case flex items-center font-normal text-[1.05em]">
+                        Invent<img src="/media/logos/lucrologo.png" alt="o" class="inline-block mx-[1px] w-[0.7em] h-[0.7em] object-contain translate-y-[20%]">ry
+                    </span>
+                </span>
+            </div>
+
+            <div class="max-w-sm w-full relative z-30 sm:p-4">
+                
+                <div class="mb-10 text-center lg:text-left">
+                    <h2 class="text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-2 uppercase">Sign In</h2>
+                    <p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Enter workspace credentials</p>
+                </div>
+
+                {% if form.errors %}
+                <div id="error-box" class="mb-8 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 px-4 py-3 rounded-md text-[11px] font-black uppercase tracking-widest flex items-center gap-3 shadow-sm">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    Invalid Access
+                </div>
+                {% endif %}
+
+                <form method="post" action="{% url 'login' %}" class="space-y-6" id="login-form">
+                    {% csrf_token %}
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] ml-1">Identity</label>
+                        <input type="text" name="username" required autocomplete="username" class="w-full px-5 py-4 bg-white/90 dark:bg-[#05080f]/90 backdrop-blur-sm border border-slate-200 dark:border-slate-800 rounded-md focus:border-primary focus:ring-1 focus:ring-primary outline-none text-slate-900 dark:text-white transition-all font-bold text-sm shadow-sm" placeholder="Username">
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] ml-1 block">Security Key</label>
+                        <input type="password" name="password" required autocomplete="current-password" class="w-full px-5 py-4 bg-white/90 dark:bg-[#05080f]/90 backdrop-blur-sm border border-slate-200 dark:border-slate-800 rounded-md focus:border-primary focus:ring-1 focus:ring-primary outline-none text-slate-900 dark:text-white transition-all font-bold text-sm tracking-widest shadow-sm" placeholder="••••••••">
+                    </div>
+
+                    <button type="submit" id="submit-btn" class="w-full bg-brand dark:bg-primary text-white dark:text-brand font-black py-4 px-4 rounded-md transition-all flex justify-center items-center gap-3 mt-8 uppercase tracking-[0.3em] text-[11px] shadow-xl active:scale-[0.98] hover:opacity-90">
+                        Authorize Access <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const errorBox = document.getElementById('error-box');
+
+            // Shake form on Error
+            if (errorBox) {
+                const formCard = errorBox.parentElement;
+                formCard.classList.add('animate-shake');
+            }
+        });
+    </script>
+</body>
+</html>

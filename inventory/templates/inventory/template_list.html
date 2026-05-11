@@ -1,0 +1,92 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block content %}
+<div id="env-data" class="hidden" data-csrf="{{ csrf_token }}"></div>
+
+<div class="max-w-[100rem] mx-auto py-4 font-sans relative flex flex-col h-[calc(100vh-2rem)] min-h-[700px]">
+    
+    <div id="toast" class="absolute bottom-5 right-5 z-[150] hidden transition-all duration-300 transform translate-y-full opacity-0">
+        <div class="bg-brand text-white px-5 py-4 rounded-md shadow-2xl flex items-start gap-4 min-w-[320px] max-w-sm border-l-4 border-red-500">
+            <i id="toast-icon" class="fa-solid fa-xmark text-red-500 text-lg mt-0.5"></i>
+            <div class="flex-1">
+                <h4 id="toast-title" class="font-black text-[11px] text-slate-50 uppercase tracking-widest">Error</h4>
+                <p id="toast-msg" class="text-xs font-medium text-slate-300 mt-1"></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4 shrink-0">
+        <div>
+            <h1 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase flex items-center gap-3 font-heading">
+                <i class="fa-solid fa-clipboard-list text-primary"></i>
+                Template Builder
+            </h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-bold mt-2 uppercase tracking-widest">Manage standardized, printable physical sheets</p>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <a href="{% url 'template_builder_create' %}" class="flex-1 md:flex-none inline-flex justify-center items-center gap-2 bg-primary hover:bg-primary/90 text-white font-black px-6 py-2.5 rounded-md shadow-sm transition-all text-[11px] uppercase tracking-widest active:scale-95 border border-transparent h-full">
+                <i class="fa-solid fa-plus"></i> New Template
+            </a>
+        </div>
+    </div>
+
+    <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pb-4 pr-2">
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {% for template in templates %}
+            <div class="bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 p-6 shadow-sm hover:border-primary transition-colors group relative flex flex-col h-full">
+                
+                <div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onclick="window.TemplateListApp.openDeleteConfirm('{{ template.id }}', '{{ template.name|escapejs }}')" class="w-8 h-8 rounded-sm bg-red-50 text-red-500 hover:bg-red-500 hover:text-white dark:bg-red-500/10 dark:hover:bg-red-500 transition-colors flex items-center justify-center shadow-sm active:scale-95">
+                        <i class="fa-solid fa-trash-can text-[10px]"></i>
+                    </button>
+                </div>
+
+                <div class="flex justify-between items-start mb-6">
+                    <div class="w-12 h-12 rounded-md bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400">
+                        <i class="fa-regular fa-file-excel text-xl group-hover:text-primary transition-colors"></i>
+                    </div>
+                </div>
+                
+                <div class="flex-1">
+                    <span class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest bg-slate-50 dark:bg-slate-950 px-2 py-1 rounded-sm mb-3 inline-block">{{ template.item_count }} Items</span>
+                    <h3 class="text-xl font-black text-slate-800 dark:text-white mb-2 uppercase tracking-wide pr-8 font-heading">{{ template.name }}</h3>
+                    <p class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-6">Created {{ template.created_at|date:"M d, Y" }}</p>
+                </div>
+                
+                <a href="{% url 'template_builder_view' template.id %}" class="block text-center w-full bg-slate-50 hover:bg-primary/10 dark:bg-slate-950 dark:hover:bg-primary/10 text-slate-700 hover:text-primary dark:text-slate-300 dark:hover:text-primary border border-slate-200 dark:border-slate-800 font-black text-[10px] uppercase tracking-widest py-3 rounded-md transition-colors mt-auto active:scale-95">
+                    Open Builder
+                </a>
+            </div>
+            {% empty %}
+            <div class="col-span-1 md:col-span-3 lg:col-span-4 text-center py-24 bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 border-dashed">
+                <i class="fa-solid fa-layer-group text-5xl text-slate-300 dark:text-slate-700 mb-6 opacity-50"></i>
+                <h3 class="text-lg font-black text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-widest font-heading">No Templates Yet</h3>
+                <p class="text-[11px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-widest">Create a master template by combining center lists</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div id="deleteConfirmModal" class="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm hidden transition-opacity duration-300">
+    <div class="bg-white dark:bg-slate-900 rounded-md shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md p-8 transform scale-95 opacity-0 transition-all duration-300">
+        <input type="hidden" id="deleteTargetId">
+        <div class="flex items-center gap-4 mb-4">
+            <div class="w-12 h-12 rounded-full bg-red-50 dark:bg-red-500/10 flex items-center justify-center text-red-500 shrink-0">
+                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+            </div>
+            <h3 class="text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase font-heading">Delete Template</h3>
+        </div>
+        <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-8 uppercase tracking-widest leading-relaxed">Are you sure you want to permanently delete <span id="deleteTargetName" class="text-slate-700 dark:text-slate-200"></span>? This cannot be undone</p>
+        
+        <div class="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-800">
+            <button onclick="window.TemplateListApp.closeDeleteConfirm()" class="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-md font-black transition-colors text-[11px] uppercase tracking-widest">Cancel</button>
+            <button id="confirmDeleteBtn" onclick="window.TemplateListApp.confirmDelete()" class="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-md font-black transition-colors text-[11px] uppercase tracking-widest shadow-sm active:scale-95 flex items-center justify-center gap-2">Delete Forever</button>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'inventory/js/template_list.js' %}?v=1.0"></script>
+{% endblock %}

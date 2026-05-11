@@ -1,0 +1,154 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block content %}
+<div id="env-data" class="hidden"
+     data-csrf="{{ csrf_token }}"
+     data-update-url="{% url 'api_update_profile' %}"
+     data-request-otp-url="{% url 'api_request_otp' %}"
+     data-verify-otp-url="{% url 'api_verify_otp' %}"
+     data-user-email="{{ request.user.email|escapejs }}">
+</div>
+
+<div class="max-w-5xl mx-auto pt-4 pb-2 font-sans flex flex-col h-[calc(100vh-6rem)] min-h-[550px]">
+
+    <div id="toast" class="fixed bottom-5 right-5 z-[100] hidden transition-all duration-300 transform translate-y-full opacity-0">
+        <div class="bg-brand text-white px-5 py-4 rounded-md shadow-2xl flex items-start gap-4 min-w-[320px] max-w-sm border-l-4 border-red-500">
+            <i id="toast-icon" class="fa-solid fa-xmark text-red-500 text-lg mt-0.5"></i>
+            <div class="flex-1">
+                <h4 id="toast-title" class="font-black text-[11px] text-slate-50 uppercase tracking-widest">Error</h4>
+                <p id="toast-msg" class="text-xs font-medium text-slate-300 mt-1"></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-5 shrink-0">
+        <h1 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase mb-1">
+            User <span class="text-primary">Profile.</span>
+        </h1>
+        <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Manage your personal information and security credentials.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0">
+        
+        <div class="lg:col-span-4 flex flex-col gap-5 h-full">
+            
+            <div class="flex items-center gap-4 bg-white dark:bg-[#0a0f18] p-5 rounded-md border border-slate-200 dark:border-slate-800 shadow-sm shrink-0">
+                <div class="w-12 h-12 shrink-0 rounded-md bg-brand text-white flex items-center justify-center font-black text-xl shadow-sm uppercase">
+                    {{ request.user.username|make_list|first }}
+                </div>
+                <div class="overflow-hidden">
+                    <h2 class="text-lg font-black text-slate-900 dark:text-white tracking-tight uppercase truncate">{{ request.user.username }}</h2>
+                    <p class="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-bold flex items-center gap-1.5 uppercase tracking-widest">
+                        <i class="fa-solid fa-shield-halved text-accent"></i>
+                        {% if request.user.is_superuser %}Global Admin{% else %}Staff User{% endif %}
+                    </p>
+                </div>
+            </div>
+
+            {% if has_multiple_apps %}
+            <div class="bg-brand rounded-md p-5 shadow-sm border border-brand/80 relative overflow-hidden flex items-center justify-between group shrink-0">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-[40px] pointer-events-none translate-x-1/2 -translate-y-1/2"></div>
+                <div class="relative z-10">
+                    <h3 class="text-[11px] font-black text-white flex items-center gap-2 uppercase tracking-widest">
+                        <i class="fa-solid fa-layer-group text-primary"></i> Nexus Hub
+                    </h3>
+                </div>
+                <a href="{% url 'nexus_hub' %}" class="relative z-10 shrink-0 bg-primary hover:bg-primary/90 text-white font-black w-8 h-8 rounded-md shadow-sm transition-all flex items-center justify-center text-xs active:scale-95">
+                    <i class="fa-solid fa-arrow-right group-hover:translate-x-0.5 transition-transform"></i>
+                </a>
+            </div>
+            {% endif %}
+
+            <div class="bg-white dark:bg-[#0a0f18] rounded-md shadow-sm border border-slate-200 dark:border-slate-800 p-5 flex flex-col flex-1">
+                <h3 class="font-black text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2 text-[10px] uppercase tracking-widest">
+                    <i class="fa-solid fa-lock text-slate-400"></i> Security Actions
+                </h3>
+                
+                <div class="mt-auto space-y-3">
+                    <button type="button" id="btn-request-otp" onclick="requestOTP()" class="w-full bg-slate-50 dark:bg-[#05080f] hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 font-black py-2.5 px-4 rounded-md transition-all shadow-sm border border-slate-200 dark:border-slate-700 text-[10px] uppercase tracking-widest flex justify-center items-center gap-2 active:scale-95">
+                        <i class="fa-solid fa-key"></i> Change Password
+                    </button>
+                    
+                    <form action="{% url 'logout' %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="w-full bg-transparent hover:bg-red-500/10 text-red-500 border border-red-500/30 hover:border-red-500 font-black py-2.5 px-4 rounded-md transition-all shadow-sm text-[10px] uppercase tracking-widest flex justify-center items-center gap-2">
+                            <i class="fa-solid fa-arrow-right-from-bracket"></i> Sign Out
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="lg:col-span-8 bg-white dark:bg-[#0a0f18] rounded-md shadow-sm border border-slate-200 dark:border-slate-800 p-6 flex flex-col h-full">
+            <h3 class="font-black text-slate-800 dark:text-slate-200 mb-6 flex items-center gap-2 text-[10px] uppercase tracking-widest shrink-0">
+                <i class="fa-solid fa-id-card text-slate-400"></i> Account Details
+            </h3>
+            
+            <form id="profile-form" class="flex-1 flex flex-col">
+                <div class="space-y-5">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div class="space-y-1.5">
+                            <label class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">First Name</label>
+                            <input type="text" id="firstName" value="{{ request.user.first_name }}" class="w-full p-2.5 bg-slate-50 dark:bg-[#05080f] border border-slate-300 dark:border-slate-700 rounded-md focus:border-primary focus:ring-1 focus:ring-primary outline-none text-slate-900 dark:text-white transition-colors shadow-sm font-bold text-sm">
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Last Name</label>
+                            <input type="text" id="lastName" value="{{ request.user.last_name }}" class="w-full p-2.5 bg-slate-50 dark:bg-[#05080f] border border-slate-300 dark:border-slate-700 rounded-md focus:border-primary focus:ring-1 focus:ring-primary outline-none text-slate-900 dark:text-white transition-colors shadow-sm font-bold text-sm">
+                        </div>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+                        <input type="email" id="email" value="{{ request.user.email }}" required class="w-full p-2.5 bg-slate-50 dark:bg-[#05080f] border border-slate-300 dark:border-slate-700 rounded-md focus:border-primary focus:ring-1 focus:ring-primary outline-none text-slate-900 dark:text-white transition-colors shadow-sm font-bold text-sm">
+                    </div>
+                </div>
+
+                <div class="mt-auto pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-end shrink-0">
+                    <button type="submit" id="btn-save-profile" class="bg-primary hover:bg-primary/90 text-white font-black py-2.5 px-6 rounded-md transition-all shadow-sm text-[10px] uppercase tracking-widest flex items-center gap-2 active:scale-95 border border-transparent">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="otp-modal" class="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm hidden transition-opacity duration-300">
+        <div class="bg-white dark:bg-[#0a0f18] rounded-md shadow-2xl max-w-md w-full p-8 border border-slate-200 dark:border-slate-800 transform scale-95 opacity-0 transition-all duration-300">
+            
+            <div class="flex items-center gap-3 mb-4">
+                <i class="fa-solid fa-shield-halved text-primary text-xl"></i>
+                <h3 class="text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase">Verification</h3>
+            </div>
+            
+            <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-8 uppercase tracking-wider leading-relaxed">
+                A 6-digit code has been sent to <span id="display-email" class="text-brand dark:text-slate-200 font-black"></span>.
+            </p>
+
+            <form id="verify-form" class="space-y-6">
+                <div class="space-y-2">
+                    <label class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">6-Digit Code</label>
+                    <input type="text" id="otpCode" maxlength="6" required class="w-full p-4 bg-slate-50 dark:bg-[#05080f] border border-slate-300 dark:border-slate-700 rounded-md focus:border-primary focus:ring-1 focus:ring-primary outline-none text-center tracking-[0.8em] text-2xl font-mono text-slate-900 dark:text-white transition-colors shadow-inner font-black">
+                </div>
+                
+                <div class="space-y-2">
+                    <label class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">New Password</label>
+                    <input type="password" id="newPassword" required class="w-full p-3 bg-slate-50 dark:bg-[#05080f] border border-slate-300 dark:border-slate-700 rounded-md focus:border-primary focus:ring-1 focus:ring-primary outline-none text-slate-900 dark:text-white transition-colors shadow-sm font-bold text-sm tracking-widest">
+                </div>
+                
+                <div class="flex gap-3 pt-6 border-t border-slate-100 dark:border-slate-800">
+                    <button type="button" onclick="closeOtpModal()" class="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-md font-black transition-colors text-[11px] uppercase tracking-widest">Cancel</button>
+                    
+                    <button type="submit" id="btn-verify-otp" class="flex-1 px-4 py-3 bg-accent hover:bg-accent/90 text-brand rounded-md font-black transition-colors flex justify-center items-center gap-2 text-[11px] uppercase tracking-widest active:scale-95 border border-transparent shadow-sm">
+                        <i class="fa-solid fa-lock-open"></i> Update
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<script src="{% static 'inventory/js/profile.js' %}?v=1.0"></script>
+{% endblock %}

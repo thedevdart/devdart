@@ -1,0 +1,240 @@
+{% extends 'records/base.html' %}
+{% block content %}
+
+<style>
+    /* Styling for the Blank Plan Preview in Modal */
+    #blankPlanContainer [style*="yellow"], 
+    #blankPlanContainer .editable-cell {
+        background-color: transparent !important;
+    }
+    #blankPlanContainer .editable-cell { 
+        border-bottom: 1px dashed #cbd5e1; 
+    }
+    .dark #blankPlanContainer .editable-cell {
+        border-bottom: 1px dashed #475569;
+    }
+    .dark .nexus-grid { border-color: #334155; }
+    .dark .nexus-grid th { background-color: #1e293b !important; color: #94a3b8 !important; border-color: #334155; }
+    .dark .nexus-grid td { border-color: #334155; color: #e2e8f0; }
+</style>
+
+<div class="max-w-[1440px] mx-auto pb-10 pt-4">
+    
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-6 mb-8">
+        <div class="space-y-2">
+            <a href="{% url 'records:dept_templates' template.department.id %}" class="group inline-flex items-center text-cyan-600 dark:text-cyan-500 hover:text-cyan-700 dark:hover:text-cyan-400 text-[10px] font-black uppercase tracking-widest transition-all">
+                <i class="fa-solid fa-arrow-left mr-2 group-hover:-translate-x-1 transition-transform"></i> 
+                Back to Directory
+            </a>
+            <h1 class="text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
+                <span class="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 p-2.5 rounded-xl shadow-sm border border-cyan-200 dark:border-cyan-800/50">
+                    <i class="fa-regular fa-folder-open"></i>
+                </span>
+                {{ template.title }}
+            </h1>
+            <p class="text-slate-500 dark:text-slate-400 font-bold text-sm flex items-center gap-3">
+                <span class="flex items-center gap-1.5"><i class="fa-regular fa-clock text-cyan-500"></i> {{ template.get_frequency_display }}</span>
+                <span class="opacity-30">|</span>
+                <span class="flex items-center gap-1.5"><i class="fa-solid fa-microchip text-emerald-500"></i> {{ template.get_document_type_display }}</span>
+            </p>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-3">
+            <button onclick="document.getElementById('viewPlanModal').classList.remove('hidden')" 
+                class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-cyan-500 dark:hover:border-cyan-400 font-black py-2.5 px-5 rounded-xl shadow-sm text-xs uppercase tracking-widest transition-all flex items-center gap-2">
+                <i class="fa-regular fa-eye text-cyan-500"></i> View Blank
+            </button>
+            
+            {% if template.document_type != 'PRINT_ONLY' %}
+            <a href="{% url 'records:scan_record' template.id %}" 
+                class="bg-slate-900 dark:bg-cyan-600 hover:opacity-90 text-white font-black py-2.5 px-6 rounded-xl shadow-lg shadow-cyan-900/20 text-xs uppercase tracking-widest transition-all flex items-center gap-2">
+                <i class="fa-solid fa-plus"></i> New Record
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if has_custom_categories %}
+    <div class="mb-8 flex gap-2 p-1.5 bg-slate-200 dark:bg-slate-800 rounded-xl w-fit shadow-inner">
+        <button id="btnGroupByDate" onclick="setGrouping('date')" class="bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm font-black text-[10px] uppercase tracking-widest py-2 px-5 rounded-lg transition-all">
+            Group by Date
+        </button>
+        <button id="btnGroupByCategory" onclick="setGrouping('category')" class="text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-black text-[10px] uppercase tracking-widest py-2 px-5 rounded-lg transition-all">
+            Group by Category
+        </button>
+    </div>
+    {% endif %}
+
+    <div id="dateGroupView" class="space-y-6">
+        {% regroup reports|dictsortreversed:"report_date" by report_date as date_grouped_reports %}
+        
+        {% for date_group in date_grouped_reports %}
+        <div class="bg-white dark:bg-[#0b1121] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm transition-colors">
+            
+            <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm flex items-center">
+                <div class="w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600 dark:text-cyan-400 flex items-center justify-center mr-3 shadow-inner">
+                    <i class="fa-regular fa-calendar-days"></i>
+                </div>
+                {{ date_group.grouper|date:"F j, Y" }}
+            </div>
+            
+            <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
+                {% for report in date_group.list %}
+                <div class="px-6 py-5 flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:bg-cyan-50/30 dark:hover:bg-cyan-900/10 transition-colors group">
+                    <div>
+                        <div class="flex items-center gap-3 mb-1.5">
+                            <span class="font-black text-sm text-slate-800 dark:text-white tracking-tight uppercase">Document Entry</span>
+                            <span class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-black px-2.5 py-1 rounded-md tracking-widest uppercase shadow-sm border border-slate-200 dark:border-slate-700">
+                                V{{ report.versions.count }}
+                            </span>
+                            {% if report.machine_id %}
+                                <span class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-black px-2.5 py-1 rounded-md tracking-widest uppercase shadow-sm">
+                                    <i class="fa-solid fa-tag mr-1 opacity-70"></i> {{ report.machine_id }}
+                                </span>
+                            {% endif %}
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 font-bold flex items-center gap-1.5">
+                            <i class="fa-solid fa-clock-rotate-left opacity-50"></i> Last modified {{ report.updated_at|timesince }} ago
+                        </p>
+                    </div>
+                    <a href="{% url 'records:record_view' report.id %}" 
+                        class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400 hover:border-cyan-400 dark:hover:border-cyan-500 font-black text-[10px] uppercase tracking-widest py-2.5 px-5 rounded-xl transition-all shadow-sm flex items-center justify-center w-fit">
+                        Access Data <i class="fa-solid fa-arrow-right-long ml-2 group-hover:translate-x-1 transition-transform"></i>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="flex flex-col items-center justify-center py-24 bg-white dark:bg-[#0b1121] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div class="w-16 h-16 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center text-3xl text-slate-300 dark:text-slate-600 mb-4 shadow-inner border border-slate-100 dark:border-slate-800">
+                <i class="fa-solid fa-file-circle-plus"></i>
+            </div>
+            <h3 class="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">No Records Found</h3>
+            <p class="text-slate-500 dark:text-slate-500 font-bold text-sm mt-1">Upload or create a new entry to start building the ledger.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div id="categoryGroupView" class="space-y-6 hidden">
+        {% regroup reports|dictsort:"machine_id" by machine_id as category_grouped_reports %}
+        
+        {% for cat_group in category_grouped_reports %}
+        <div class="bg-white dark:bg-[#0b1121] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm transition-colors">
+            
+            <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm flex items-center">
+                <div class="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mr-3 shadow-inner">
+                    <i class="fa-solid fa-layer-group"></i>
+                </div>
+                {{ cat_group.grouper|default:"Uncategorized" }}
+            </div>
+            
+            <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
+                {% for report in cat_group.list|dictsortreversed:"report_date" %}
+                <div class="px-6 py-5 flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10 transition-colors group">
+                    <div>
+                        <div class="flex items-center gap-3 mb-1.5">
+                            <span class="font-black text-sm text-slate-800 dark:text-white tracking-tight uppercase">Document Entry</span>
+                            <span class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-black px-2.5 py-1 rounded-md tracking-widest uppercase shadow-sm border border-slate-200 dark:border-slate-700">
+                                V{{ report.versions.count }}
+                            </span>
+                            <span class="bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-800/50 text-cyan-700 dark:text-cyan-400 text-[10px] font-black px-2.5 py-1 rounded-md tracking-widest uppercase shadow-sm">
+                                <i class="fa-regular fa-calendar mr-1 opacity-70"></i> {{ report.report_date|date:"M j, Y" }}
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 font-bold flex items-center gap-1.5">
+                            <i class="fa-solid fa-clock-rotate-left opacity-50"></i> Last modified {{ report.updated_at|timesince }} ago
+                        </p>
+                    </div>
+                    <a href="{% url 'records:record_view' report.id %}" 
+                        class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-400 dark:hover:border-emerald-500 font-black text-[10px] uppercase tracking-widest py-2.5 px-5 rounded-xl transition-all shadow-sm flex items-center justify-center w-fit">
+                        Access Data <i class="fa-solid fa-arrow-right-long ml-2 group-hover:translate-x-1 transition-transform"></i>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="flex flex-col items-center justify-center py-24 bg-white dark:bg-[#0b1121] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div class="w-16 h-16 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center text-3xl text-slate-300 dark:text-slate-600 mb-4 shadow-inner border border-slate-100 dark:border-slate-800">
+                <i class="fa-solid fa-file-circle-plus"></i>
+            </div>
+            <h3 class="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">No Records Found</h3>
+            <p class="text-slate-500 dark:text-slate-500 font-bold text-sm mt-1">Upload or create a new entry to start building the ledger.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<div id="viewPlanModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-slate-900/80 backdrop-blur-sm transition-all duration-300">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-700 transform transition-all scale-100">
+        
+        <div class="flex justify-between items-center p-5 md:p-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80">
+            <h2 class="font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
+                <span class="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 p-2 rounded-lg border border-cyan-200 dark:border-cyan-800/50">
+                    <i class="fa-regular fa-eye"></i>
+                </span>
+                Blank Template: <span class="font-bold text-slate-500 dark:text-slate-400">{{ template.title }}</span>
+            </h2>
+            <button onclick="document.getElementById('viewPlanModal').classList.add('hidden')" 
+                class="w-10 h-10 rounded-full flex items-center justify-center bg-slate-200 dark:bg-slate-800 text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 transition-colors">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        
+        <div class="p-6 md:p-10 overflow-auto bg-slate-100/50 dark:bg-[#0b1121] flex-1 custom-scrollbar flex justify-center items-start">
+            <div class="bg-white dark:bg-slate-900 p-8 shadow-[0_10px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] border border-slate-200 dark:border-slate-800 w-full max-w-full overflow-x-auto rounded-sm">
+                <div id="blankPlanContainer" class="pointer-events-none min-w-max mx-auto">
+                    {{ template.html_layout|safe }}
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-5 md:p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 flex justify-end gap-3">
+            <button onclick="document.getElementById('viewPlanModal').classList.add('hidden')" 
+                class="px-6 py-3 font-black text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-widest hover:text-slate-800 dark:hover:text-white transition-colors">
+                Close
+            </button>
+            <button onclick="window.print()" 
+                class="bg-cyan-600 hover:bg-cyan-500 text-white font-black py-3 px-8 rounded-xl shadow-lg shadow-cyan-600/20 text-[10px] uppercase tracking-widest transition-all flex items-center gap-2">
+                <i class="fa-solid fa-print text-sm"></i> Print Format
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Tab Switching Logic
+    function setGrouping(mode) {
+        const btnDate = document.getElementById('btnGroupByDate');
+        const btnCat = document.getElementById('btnGroupByCategory');
+        const viewDate = document.getElementById('dateGroupView');
+        const viewCat = document.getElementById('categoryGroupView');
+
+        // Toggle Classes
+        const activeClasses = ['bg-white', 'dark:bg-slate-700', 'text-slate-800', 'dark:text-white', 'shadow-sm'];
+        const inactiveClasses = ['text-slate-500', 'dark:text-slate-400', 'hover:text-slate-800', 'dark:hover:text-slate-200'];
+
+        if (mode === 'date') {
+            viewDate.classList.remove('hidden');
+            viewCat.classList.add('hidden');
+            
+            btnDate.classList.add(...activeClasses);
+            btnDate.classList.remove(...inactiveClasses);
+            
+            btnCat.classList.add(...inactiveClasses);
+            btnCat.classList.remove(...activeClasses);
+        } else {
+            viewDate.classList.add('hidden');
+            viewCat.classList.remove('hidden');
+            
+            btnCat.classList.add(...activeClasses);
+            btnCat.classList.remove(...inactiveClasses);
+            
+            btnDate.classList.add(...inactiveClasses);
+            btnDate.classList.remove(...activeClasses);
+        }
+    }
+</script>
+{% endblock %}

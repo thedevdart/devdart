@@ -1,0 +1,123 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="max-w-[100rem] mx-auto py-4 font-sans relative flex flex-col h-[calc(100vh-2rem)] min-h-[700px] overflow-hidden">
+    
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4 shrink-0">
+        <div>
+            <a href="{% url 'template_builder_list' %}" class="text-slate-500 dark:text-slate-400 hover:text-primary text-[10px] font-black uppercase tracking-widest mb-3 inline-flex items-center gap-2 transition-colors">
+                <i class="fa-solid fa-arrow-left"></i> Back to Templates
+            </a>
+            <h1 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase flex items-center gap-3 font-heading">
+                <i class="fa-solid fa-clipboard-list text-primary"></i>
+                {{ template.name }}
+            </h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-bold mt-2 uppercase tracking-widest">Configure layout and columns before generating print sheet</p>
+        </div>
+    </div>
+
+    <div class="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
+        
+        <div class="lg:w-1/3 flex flex-col gap-5 overflow-y-auto custom-scrollbar pr-2 pb-4">
+            
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 shrink-0">
+                <label class="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 ml-1">Print Header (Center Name)</label>
+                <input type="text" oninput="window.TemplateViewApp.updateTitle(this.value)" placeholder="e.g. MUMBAI CENTER" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-md px-4 py-3 font-black text-[11px] outline-none focus:ring-1 focus:ring-primary focus:border-primary uppercase text-slate-900 dark:text-white placeholder-slate-400 shadow-inner transition-all">
+            </div>
+
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 shrink-0">
+                <label class="block text-[10px] font-black text-primary uppercase tracking-widest mb-4 flex items-center gap-2 ml-1">
+                    <i class="fa-solid fa-box-open text-sm"></i> Raw Material Columns
+                </label>
+                
+                <div id="raw-cols-container" class="space-y-2 mb-5">
+                    </div>
+                
+                <button onclick="window.TemplateViewApp.addColumn('raw')" class="w-full bg-primary/5 text-primary py-3 rounded-md font-black text-[10px] uppercase tracking-widest border border-dashed border-primary/30 hover:bg-primary/10 transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-plus"></i> Add Column
+                </button>
+            </div>
+
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 shrink-0">
+                <label class="block text-[10px] font-black text-accent uppercase tracking-widest mb-4 flex items-center gap-2 ml-1">
+                    <i class="fa-solid fa-boxes-stacked text-sm"></i> Finished Goods Columns
+                </label>
+                
+                <div id="fin-cols-container" class="space-y-2 mb-5">
+                    </div>
+                
+                <button onclick="window.TemplateViewApp.addColumn('fin')" class="w-full bg-accent/5 text-brand dark:text-accent py-3 rounded-md font-black text-[10px] uppercase tracking-widest border border-dashed border-accent/30 hover:bg-accent/10 transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-plus"></i> Add Column
+                </button>
+            </div>
+
+            <div class="mt-auto space-y-3 pt-2 shrink-0">
+                <form action="{% url 'template_builder_download' template.id %}" method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="payload" id="download-payload">
+                    <button type="submit" class="w-full bg-primary hover:bg-primary/90 text-white font-black text-[11px] uppercase tracking-widest py-4 rounded-md shadow-sm active:scale-[0.99] transition-all flex justify-center items-center gap-3 border border-transparent">
+                        <i class="fa-solid fa-print"></i> Download Print Sheet
+                    </button>
+                </form>
+
+                <a href="{% url 'template_item_vs_center_download' template.id %}" class="w-full bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 font-black text-[10px] uppercase tracking-widest py-4 rounded-md shadow-sm hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary transition-all flex justify-center items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-code-compare"></i> Download Item Matrix
+                </a>
+            </div>
+        </div>
+
+        <div class="lg:w-2/3 bg-slate-200 dark:bg-[#05080f] p-6 rounded-md shadow-inner overflow-y-auto custom-scrollbar flex justify-center border border-slate-300 dark:border-slate-900">
+            
+            <div class="bg-white w-full max-w-[210mm] min-h-[297mm] p-10 shadow-xl font-sans text-black origin-top">
+                
+                <div class="flex justify-between items-end border-b-2 border-black pb-2 mb-8 shrink-0">
+                    <h2 id="preview-header-title" class="text-2xl font-black uppercase tracking-tight">CENTER NAME</h2>
+                    <div class="text-sm font-bold">DATE: ____________________</div>
+                </div>
+
+                {% if raw_items %}
+                <div class="border border-black mb-10">
+                    <h3 class="font-black text-xs text-center uppercase border-b border-black py-1.5 bg-slate-100">Raw Material</h3>
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr id="preview-raw-header-row" class="bg-slate-50 text-[10px] font-black uppercase tracking-wider">
+                                </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in raw_items|slice:":8" %}
+                            <tr class="preview-raw-body-row" data-sr="{{ forloop.counter }}" data-name="{{ item.name|escapejs }}">
+                                </tr>
+                            {% endfor %}
+                            <tr><td colspan="100%" class="p-3 text-center text-slate-500 text-[10px] italic border-t border-black font-bold">Preview showing first 8 items</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+
+                {% if finished_items %}
+                <div class="border border-black">
+                    <h3 class="font-black text-xs text-center uppercase border-b border-black py-1.5 bg-slate-100">Finished Goods</h3>
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr id="preview-fin-header-row" class="bg-slate-50 text-[10px] font-black uppercase tracking-wider">
+                                </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in finished_items|slice:":8" %}
+                            <tr class="preview-fin-body-row" data-sr="{{ forloop.counter }}" data-name="{{ item.name|escapejs }}">
+                                </tr>
+                            {% endfor %}
+                            <tr><td colspan="100%" class="p-3 text-center text-slate-500 text-[10px] italic border-t border-black font-bold">Preview showing first 8 items</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'inventory/js/template_view.js' %}?v=1.1"></script>
+{% endblock %}

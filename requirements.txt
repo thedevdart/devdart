@@ -1,0 +1,10 @@
+Django==5.2.10
+djangorestframework
+python-dotenv
+dj-database-url
+psycopg2-binary
+whitenoise
+openpyxl
+requests
+Pillow
+gunicorn

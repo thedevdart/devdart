@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Control | Nexus Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        /* Prevents Alpine elements from flickering before they load */
+        [x-cloak] { display: none !important; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 font-sans">
+
+    <nav class="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-30">
+        <div class="flex items-center gap-6">
+            <a href="{% url 'nexus_hub' %}" class="text-slate-400 hover:text-indigo-600 transition-colors">
+                <i class="fa-solid fa-house-chimney text-xl"></i>
+            </a>
+            <div class="h-6 w-px bg-slate-200"></div>
+            <div>
+                <h1 class="text-xl font-black tracking-tight text-slate-800 uppercase">Access Control</h1>
+                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">System Administration</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'role_create' %}" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold text-xs shadow-sm hover:bg-indigo-700 transition-all flex items-center gap-2">
+                <i class="fa-solid fa-plus"></i> NEW ROLE
+            </a>
+        </div>
+    </nav>
+
+    <div class="p-8 space-y-10">
+
+        <section>
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-1 h-6 bg-indigo-600 rounded-full"></div>
+                <h2 class="text-sm font-black uppercase tracking-widest text-slate-600">Defined Security Roles</h2>
+            </div>
+
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr class="text-[10px] uppercase tracking-widest text-slate-500 font-black">
+                            <th class="p-4 w-1/4">Role Identity</th>
+                            <th class="p-4 w-1/3">App Context</th>
+                            <th class="p-4 text-center">Permissions</th>
+                            <th class="p-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for role in roles %}
+                        <tr class="hover:bg-slate-50/80 transition-colors group">
+                            <td class="p-4">
+                                <div class="font-black text-slate-800 uppercase text-sm">{{ role.name }}</div>
+                                <div class="text-xs text-slate-400 italic mt-0.5 line-clamp-1">{{ role.description|default:"Generic role." }}</div>
+                            </td>
+                            <td class="p-4">
+                                <div class="flex flex-wrap gap-1">
+                                    {% for app in role.allowed_apps.all %}
+                                    <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold border border-slate-200">
+                                        <i class="{{ app.icon_class }} mr-1"></i> {{ app.display_name }}
+                                    </span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td class="p-4 text-center">
+                                <span class="text-xs font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
+                                    {{ role.allowed_features.count }} ACTIVE
+                                </span>
+                            </td>
+                            <td class="p-4 text-right">
+                                <a href="{% url 'role_edit' role.id %}" class="inline-flex items-center gap-2 text-indigo-600 font-bold text-xs hover:underline">
+                                    EDIT CONFIG <i class="fa-solid fa-angle-right"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section x-data="{ activeTab: 'all_users' }">
+            
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-4 border-b border-slate-200 pb-4">
+                <div class="flex items-center gap-2 shrink-0">
+                    <div class="w-1 h-6 bg-emerald-500 rounded-full"></div>
+                    <h2 class="text-sm font-black uppercase tracking-widest text-slate-600">User Authority Directory</h2>
+                </div>
+                
+                <div class="flex bg-slate-200 p-1 rounded-lg overflow-x-auto hide-scrollbar gap-1">
+                    
+                    <button @click="activeTab = 'superuser'" 
+                            :class="activeTab === 'superuser' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+                            class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap">
+                        <i class="fa-solid fa-crown mr-1"></i> Superusers
+                    </button>
+
+                    <div class="w-px bg-slate-300 mx-1 my-1"></div>
+
+                    {% for app in apps %}
+                    <button @click="activeTab = '{{ app.id }}'" 
+                            :class="activeTab === '{{ app.id }}' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+                            class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap">
+                        <i class="{{ app.icon_class }} mr-1"></i> {{ app.display_name }}
+                    </button>
+                    {% endfor %}
+
+                    <div class="w-px bg-slate-300 mx-1 my-1"></div>
+
+                    <button @click="activeTab = 'all_apps'" 
+                            :class="activeTab === 'all_apps' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+                            class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap">
+                        <i class="fa-solid fa-layer-group mr-1"></i> All Apps
+                    </button>
+                    
+                    <button @click="activeTab = 'all_users'" 
+                            :class="activeTab === 'all_users' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+                            class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap">
+                        <i class="fa-solid fa-users mr-1"></i> All Users
+                    </button>
+
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr class="text-[10px] uppercase tracking-widest text-slate-500 font-black">
+                            <th class="p-4">User</th>
+                            <th class="p-4">Authorization State</th>
+                            <th class="p-4">Stacked Roles</th>
+                            <th class="p-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        
+                        {% for su in superusers %}
+                        <tr x-show="activeTab === 'superuser' || activeTab === 'all_users'" class="bg-indigo-50/30" x-cloak>
+                            <td class="p-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black">SU</div>
+                                    <div>
+                                        <div class="font-black text-slate-800 text-sm uppercase">{{ su.username }}</div>
+                                        <div class="text-[10px] text-indigo-500 font-bold uppercase tracking-widest">Global Admin</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="p-4">
+                                <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest">Unlocked</span>
+                            </td>
+                            <td class="p-4">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">System Wide Override</span>
+                            </td>
+                            <td class="p-4 text-right">
+                                <a href="{% url 'user_manager' su.id %}" class="bg-white border border-slate-300 px-4 py-1.5 rounded text-[10px] font-black uppercase tracking-widest text-slate-600 hover:border-indigo-600 hover:text-indigo-600 transition-all">
+                                    View Profile
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                        {% for user in users %}
+                        <tr x-show="activeTab === 'all_users' || activeTab === '{{ user.nexus_profile.primary_app_id|default_if_none:"all_apps" }}'" class="hover:bg-slate-50 transition-colors" x-cloak>
+                            <td class="p-4">
+                                <div class="font-black text-slate-800 text-sm uppercase">{{ user.username }}</div>
+                                <div class="text-xs text-slate-400">{{ user.email|default:"no-email@nexus.com" }}</div>
+                            </td>
+                            <td class="p-4">
+                                {% if user.is_active %}
+                                    <div class="flex items-center gap-1.5 text-emerald-600 font-black text-[10px] uppercase">
+                                        <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Active
+                                    </div>
+                                {% else %}
+                                    <div class="flex items-center gap-1.5 text-red-500 font-black text-[10px] uppercase">
+                                        <div class="w-1.5 h-1.5 rounded-full bg-red-500"></div> Disabled
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td class="p-4">
+                                <div class="flex flex-wrap gap-1">
+                                    {% for role in user.nexus_profile.roles.all %}
+                                        <span class="px-2 py-1 rounded bg-slate-800 text-white text-[9px] font-black uppercase tracking-tighter">
+                                            {{ role.name }}
+                                        </span>
+                                    {% empty %}
+                                        <span class="text-[10px] font-bold text-amber-600 italic uppercase">No Roles Found</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td class="p-4 text-right">
+                                <a href="{% url 'user_manager' user.id %}" class="bg-white border border-slate-300 px-4 py-1.5 rounded text-[10px] font-black uppercase tracking-widest text-slate-600 hover:border-indigo-600 hover:text-indigo-600 transition-all">
+                                    Configure Access
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </div>
+
+</body>
+</html>

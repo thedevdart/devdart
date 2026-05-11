@@ -1,0 +1,296 @@
+{% extends "maintenance/base.html" %}
+
+{% block content %}
+<style>
+    .form-shell {
+        max-width: 980px;
+        margin: 0 auto;
+    }
+
+    .page-intro {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.9rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .page-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.45rem 0.8rem;
+        border-radius: 999px;
+        background: var(--primary-soft);
+        color: var(--primary);
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .page-title {
+        margin: 0.85rem 0 0.35rem;
+        font-size: clamp(1.7rem, 3vw, 2.3rem);
+        font-weight: 800;
+        color: var(--text-main);
+    }
+
+    .page-copy {
+        margin: 0;
+        color: var(--text-muted);
+        max-width: 640px;
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.85rem 1rem;
+        border-radius: 1rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        color: var(--text-main);
+        font-weight: 700;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .back-link:hover {
+        color: var(--primary);
+    }
+
+    .asset-layout {
+        display: block;
+    }
+
+    .form-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 1.6rem;
+        padding: 1.6rem;
+        box-shadow: var(--shadow-md);
+    }
+
+    .form-section {
+        margin-bottom: 1.4rem;
+    }
+
+    .section-banner {
+        display: flex;
+        gap: 0.9rem;
+        align-items: center;
+        background: var(--bg-muted);
+        border: 1px solid var(--border-color);
+        border-radius: 1.2rem;
+        padding: 1rem;
+        margin-bottom: 1.35rem;
+    }
+
+    .section-banner-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 1rem;
+        display: grid;
+        place-items: center;
+        background: var(--primary-soft);
+        color: var(--primary);
+        font-size: 1.1rem;
+    }
+
+    .section-banner h5 {
+        margin: 0 0 0.25rem;
+        font-weight: 800;
+        color: var(--text-main);
+    }
+
+    .section-banner p {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.88rem;
+    }
+
+    .field-card {
+        background: var(--bg-muted);
+        border: 1px solid var(--border-color);
+        border-radius: 1.2rem;
+        padding: 1rem;
+        height: 100%;
+    }
+
+    .field-hint {
+        margin-top: 0.45rem;
+        color: var(--text-muted);
+        font-size: 0.82rem;
+    }
+
+    .highlight-box {
+        padding: 1rem;
+        border-radius: 1.2rem;
+        background: var(--accent-warning-bg);
+        border: 1px solid rgba(245, 158, 11, 0.24);
+        margin-bottom: 1.3rem;
+    }
+
+    .highlight-box .saas-label {
+        color: var(--accent-warning-text);
+    }
+
+    .highlight-box .field-hint {
+        color: var(--accent-warning-text);
+    }
+
+    .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem 1.1rem;
+        border-radius: 1.1rem;
+        background: var(--bg-muted);
+        border: 1px solid var(--border-color);
+    }
+
+    .toggle-copy strong {
+        display: block;
+        color: var(--text-main);
+        margin-bottom: 0.2rem;
+    }
+
+    .toggle-copy span {
+        color: var(--text-muted);
+        font-size: 0.84rem;
+    }
+
+    .submit-btn {
+        width: 100%;
+        border: none;
+        border-radius: 1rem;
+        padding: 1rem 1.2rem;
+        font-weight: 800;
+        color: #fff;
+        background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+        box-shadow: 0 18px 36px rgba(109, 94, 252, 0.26);
+        transition: 0.2s ease;
+    }
+
+    .submit-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    .error-note {
+        color: var(--accent-danger-text);
+        font-size: 0.82rem;
+        margin-top: 0.45rem;
+    }
+
+    @media (max-width: 991px) {
+        .asset-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .page-intro {
+            flex-direction: column;
+        }
+    }
+</style>
+
+<div class="form-shell">
+    <div class="page-intro animate-slide-up">
+        <a href="{% url 'maintenance:dashboard' %}" class="back-link">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+        <div>
+            <span class="page-eyebrow"><i class="fas fa-plus-circle"></i> Asset onboarding</span>
+            <h2 class="page-title">Register a new maintenance asset</h2>
+            <p class="page-copy">Capture the core identity, service schedule, and reminder settings for every machine or utility you track.</p>
+        </div>
+    </div>
+
+    <div class="asset-layout animate-slide-up delay-100">
+        <div class="form-card">
+            <form method="POST" class="asset-form">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                    <div class="alert alert-danger py-3 mb-4" role="alert">
+                        <strong><i class="fas fa-circle-exclamation me-2"></i>Please correct the highlighted fields.</strong>
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <div class="section-banner">
+                    <div class="section-banner-icon">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div>
+                        <h5>Asset specification</h5>
+                        <p>Define the basic profile and preventive maintenance cycle.</p>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="field-card">
+                        <label for="id_name" class="saas-label">Asset Name</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}<div class="error-note">{{ form.name.errors.0 }}</div>{% endif %}
+                        <div class="field-hint">Examples: Chiller Unit 04, Air Compressor B2, CNC Lathe Bay 3.</div>
+                    </div>
+                </div>
+
+                <div class="row g-3 form-section">
+                    <div class="col-md-6">
+                        <div class="field-card">
+                            <label for="id_category" class="saas-label">Category</label>
+                            {{ form.category }}
+                            {% if form.category.errors %}<div class="error-note">{{ form.category.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="field-card">
+                            <label for="id_location" class="saas-label">Location / Zone</label>
+                            {{ form.location }}
+                            {% if form.location.errors %}<div class="error-note">{{ form.location.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="field-card">
+                        <label for="id_purchase_or_start_date" class="saas-label">Purchase / Start Date</label>
+                        {{ form.purchase_or_start_date }}
+                        {% if form.purchase_or_start_date.errors %}<div class="error-note">{{ form.purchase_or_start_date.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    <label for="id_initial_next_due_date" class="saas-label">
+                        <i class="fas fa-calendar-check me-1"></i> First Maintenance Due
+                    </label>
+                    {{ form.initial_next_due_date }}
+                    {% if form.initial_next_due_date.errors %}<div class="error-note">{{ form.initial_next_due_date.errors.0 }}</div>{% endif %}
+                    <div class="field-hint">This date becomes the starting point for compliance and alert tracking.</div>
+                </div>
+
+                <div class="form-section">
+                    <div class="toggle-row">
+                        <div class="toggle-copy">
+                            <strong>Enable maintenance reminders</strong>
+                            <span>Switch on reminder support for this asset’s upcoming due dates.</span>
+                        </div>
+                        <div class="form-check form-switch m-0">
+                            {{ form.enable_reminders }}
+                        </div>
+                    </div>
+                    {% if form.enable_reminders.errors %}<div class="error-note">{{ form.enable_reminders.errors.0 }}</div>{% endif %}
+                </div>
+
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-check-circle me-2"></i> Register Asset
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

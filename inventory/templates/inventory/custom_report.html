@@ -1,0 +1,210 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block content %}
+
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+
+<div id="env-data" data-csrf="{{ csrf_token }}" class="hidden"></div>
+
+<div id="custom-report-app" class="max-w-[90rem] mx-auto font-sans relative space-y-6" x-data="reportManager()">
+    
+<div class="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-6 shrink-0">
+        <div>
+            <a href="{% url 'custom_reports_landing' %}" class="text-slate-500 dark:text-slate-400 hover:text-primary text-[10px] font-black uppercase tracking-widest mb-3 inline-flex items-center gap-2 transition-colors">
+                <i class="fa-solid fa-arrow-left"></i> Back to Custom Reports
+            </a>
+            <h1 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tighter flex items-center gap-3 uppercase font-heading">
+                <i class="fa-solid fa-table-cells text-primary"></i>
+                Dynamic Pivot Report
+            </h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-bold mt-2 uppercase tracking-widest">Generate customized center-vs-item closing balance matrices</p>
+        </div>
+        
+        </div>
+    <div class="bg-white dark:bg-slate-800 p-6 rounded-md shadow-sm border border-slate-200 dark:border-slate-700 transition-colors duration-300">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+            
+            <div class="space-y-2">
+                <label class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">1. Record Date</label>
+                <div class="relative flex items-center">
+                    <i onclick="document.getElementById('dateInput')._flatpickr.open()" class="fa-regular fa-calendar-days absolute left-3 top-1/2 -translate-y-1/2 text-primary cursor-pointer hover:scale-110 transition-transform"></i>
+                    <input type="text" id="dateInput" placeholder="Select Date..." class="w-full pl-10 py-2 border border-slate-300 dark:border-slate-700 rounded-md bg-slate-50 dark:bg-[#0a0f18] text-slate-900 dark:text-slate-100 hover:border-primary dark:hover:border-primary text-sm font-bold focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all shadow-sm">
+                </div>
+            </div>
+
+            <div class="space-y-2 relative">
+                <label class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex justify-between">
+                    <span>2. Centers</span>
+                    <span class="text-primary cursor-pointer hover:underline lowercase" @click="selectedCenters = []; fetchItems()">clear</span>
+                </label>
+                <div class="relative" @click.away="centerOpen = false">
+                    <div @click="centerOpen = !centerOpen" class="w-full p-2 pl-3 border border-slate-300 dark:border-slate-700 rounded-md bg-slate-50 dark:bg-[#0a0f18] text-slate-900 dark:text-slate-100 hover:border-primary dark:hover:border-primary text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all flex items-center justify-between shadow-sm font-bold">
+                        <span class="truncate" x-text="selectedCenters.length === 0 ? 'All Centers' : selectedCenters.length + ' Center(s) Selected'"></span>
+                        <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform" :class="centerOpen ? 'rotate-180' : ''"></i>
+                    </div>
+                    
+                    <div x-show="centerOpen" x-transition.opacity.duration.200ms class="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-2xl max-h-64 flex flex-col" x-cloak>
+                        <div class="p-2 border-b border-slate-100 dark:border-slate-700 z-10 shrink-0">
+                            <input type="text" x-model="centerSearch" placeholder="Search center..." class="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-sm text-xs font-bold outline-none focus:border-primary text-slate-800 dark:text-slate-200 transition-colors">
+                        </div>
+                        <div class="flex-1 overflow-y-auto custom-scrollbar p-1">
+                            <template x-for="center in filteredCenters" :key="center.id">
+                                <label class="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-sm cursor-pointer transition-colors">
+                                    <input type="checkbox" :value="center.id" x-model="selectedCenters" @change="fetchItems()" class="w-4 h-4 rounded-sm border-slate-300 text-primary focus:ring-primary bg-slate-100 dark:bg-slate-900 dark:border-slate-600 cursor-pointer">
+                                    <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide" x-text="center.name"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-2 relative">
+                <label class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex justify-between items-center">
+                    <span>3. Filter Items</span>
+                    <i class="fa-solid fa-circle-notch fa-spin text-primary" x-show="isFetchingItems" x-cloak></i>
+                    <span class="text-primary cursor-pointer hover:underline lowercase" x-show="!isFetchingItems" @click="selectedItems = []">clear</span>
+                </label>
+                <div class="relative" @click.away="itemOpen = false">
+                    <div @click="itemOpen = !itemOpen" class="w-full p-2 pl-3 border border-slate-300 dark:border-slate-700 rounded-md bg-slate-50 dark:bg-[#0a0f18] text-slate-900 dark:text-slate-100 hover:border-primary dark:hover:border-primary text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all flex items-center justify-between shadow-sm font-bold" :class="isFetchingItems ? 'opacity-50 pointer-events-none' : ''">
+                        <span class="truncate" x-text="selectedItems.length === 0 ? 'All Available Items' : selectedItems.length + ' Item(s) Selected'"></span>
+                        <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform" :class="itemOpen ? 'rotate-180' : ''"></i>
+                    </div>
+                    
+                    <div x-show="itemOpen" x-transition.opacity.duration.200ms class="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-2xl max-h-72 flex flex-col" x-cloak>
+                        <div class="p-2 border-b border-slate-100 dark:border-slate-700 z-10 shrink-0">
+                            <input type="text" x-model="itemSearch" placeholder="Search item..." class="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-sm text-xs font-bold outline-none focus:border-primary text-slate-800 dark:text-slate-200 uppercase placeholder:normal-case transition-colors">
+                            <div class="flex justify-between items-center px-1 mt-2">
+                                <span class="text-[10px] text-slate-500 font-bold" x-text="availableItems.length + ' Total Items'"></span>
+                                <button @click="selectAllFilteredItems()" class="text-[10px] font-black text-primary hover:text-primary/80 lowercase">select all</button>
+                            </div>
+                        </div>
+                        <div class="flex-1 overflow-y-auto custom-scrollbar p-1">
+                            <template x-if="filteredItems.length === 0">
+                                <div class="px-3 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest">No items found.</div>
+                            </template>
+                            <template x-for="item in filteredItems" :key="item">
+                                <label class="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-sm cursor-pointer transition-colors">
+                                    <input type="checkbox" :value="item" x-model="selectedItems" class="w-4 h-4 rounded-sm border-slate-300 text-primary focus:ring-primary bg-slate-100 dark:bg-slate-900 dark:border-slate-600 cursor-pointer shrink-0">
+                                    <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide truncate" x-text="item"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="mt-6 flex flex-wrap gap-3 border-t border-slate-100 dark:border-slate-700 pt-5">
+            <button @click="runReport()" :disabled="!date || isGenerating" class="flex-1 md:flex-none px-6 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-md font-bold shadow-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider text-xs">
+                <i class="fa-solid fa-play" x-show="!isGenerating"></i>
+                <i class="fa-solid fa-circle-notch fa-spin" x-show="isGenerating" x-cloak></i>
+                <span x-text="isGenerating ? 'Generating...' : 'Run Report'"></span>
+            </button>
+            
+            <button @click="exportExcel()" :disabled="!date || reportRows.length === 0 || isGenerating" class="flex-1 md:flex-none px-6 py-2.5 bg-accent hover:bg-accent/90 text-brand rounded-md font-black shadow-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider text-xs">
+                <i class="fa-solid fa-file-excel"></i> Export Excel
+            </button>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-md shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col min-h-[400px]">
+        
+        <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0a0f18] flex justify-between items-center">
+            <h3 class="font-black text-slate-800 dark:text-slate-200 text-xs uppercase tracking-widest flex items-center gap-2">
+                <i class="fa-solid fa-table-cells text-slate-400"></i> Report Output
+            </h3>
+            <span class="text-[10px] font-black tracking-widest text-slate-500 uppercase bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded-sm" x-show="reportRows.length > 0" x-cloak>
+                <span x-text="reportRows.length"></span> Rows
+            </span>
+        </div>
+
+        <div x-show="reportRows.length === 0 && !isGenerating" class="flex-1 flex flex-col items-center justify-center p-12 text-slate-400 dark:text-slate-600" x-transition.opacity>
+            <i class="fa-solid fa-magnifying-glass-chart text-4xl mb-4 opacity-50"></i>
+            <h4 class="font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest text-sm">No Data Displayed</h4>
+            <p class="text-xs mt-1 text-center max-w-sm font-medium">Select your desired date, centers, and items above, then click 'Run Report'.</p>
+        </div>
+
+        <div class="flex-1 overflow-auto custom-scrollbar relative" x-show="reportRows.length > 0" x-cloak x-transition.opacity>
+          <table class="w-full text-sm text-left border-collapse whitespace-nowrap">
+               <thead class="bg-slate-50 dark:bg-slate-900 text-[10px] uppercase tracking-widest font-black text-slate-500 sticky top-0 z-20 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800">
+                    <tr>
+                        <th class="px-4 py-3 border-r border-slate-200 dark:border-slate-800 w-16 text-center">Type</th>
+                        <th class="px-4 py-3 min-w-[250px] border-r border-slate-200 dark:border-slate-800">Material Name</th>
+                        <th class="px-4 py-3 text-center text-primary dark:text-primary bg-primary/10 dark:bg-primary/10 border-r border-slate-200 dark:border-slate-800">Total</th>
+                        
+                        <template x-for="col in reportColumns" :key="col">
+                            <th class="px-4 py-3 text-center border-r border-slate-200 dark:border-slate-800" x-text="col"></th>
+                        </template>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300 font-mono">
+                    <template x-for="(row, idx) in reportRows" :key="idx">
+                        <tr class="transition-colors group"
+                            :class="{
+                                'bg-slate-100 dark:bg-[#0a0f18] shadow-sm': row.is_summary,
+                                'hover:bg-slate-50 dark:hover:bg-slate-900': !row.is_summary
+                            }">
+                            
+                            <td class="px-4 py-2.5 font-black text-[10px] text-center border-r border-slate-200 dark:border-slate-800"
+                                :class="{
+                                    'text-primary dark:text-primary': row.Category === 'ALL',
+                                    'text-primary dark:text-primary': row.Category === 'RM',
+                                    'text-accent dark:text-accent': row.Category === 'FG'
+                                }"
+                                x-text="row.Category"></td>
+                            
+                            <td class="px-4 py-2.5 text-xs tracking-wide border-r border-slate-200 dark:border-slate-800"
+                                :class="row.is_summary ? 'font-black uppercase' : 'font-bold uppercase'"
+                                x-text="row.Item"></td>
+                            
+                            <td class="px-4 py-2.5 text-center font-black border-r border-slate-200 dark:border-slate-800"
+                                :class="row.is_summary ? 'text-primary dark:text-primary bg-primary/20 dark:bg-primary/20' : 'text-primary dark:text-primary/80 bg-primary/5 dark:bg-primary/5'" 
+                                x-text="row.Total.toLocaleString()"></td>
+
+                            <template x-for="col in reportColumns" :key="col">
+                                <td class="px-4 py-2.5 text-center border-r border-slate-100 dark:border-slate-800" 
+                                    :class="{
+                                        'text-slate-300 dark:text-slate-600': row[col] === 0,
+                                        'font-black': row[col] !== 0 && row.is_summary,
+                                        'font-bold': row[col] !== 0 && !row.is_summary
+                                    }" 
+                                    x-text="row[col] === 0 ? '-' : row[col].toLocaleString()"></td>
+                            </template>
+                            
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{{ centers_list|json_script:"centers-data" }}
+
+<script src="{% static 'inventory/js/custom_report.js' %}?v=1.0"></script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        flatpickr("#dateInput", { 
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "d-m-Y",
+            onChange: function(selectedDates, dateStr) {
+                const el = document.getElementById('custom-report-app');
+                if(el && Alpine) Alpine.$data(el).date = dateStr;
+                if(el && Alpine) Alpine.$data(el).fetchItems();
+            }
+        });
+    });
+</script>
+
+{% endblock %}

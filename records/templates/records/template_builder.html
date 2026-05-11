@@ -1,0 +1,712 @@
+{% extends 'records/base.html' %}
+{% block content %}
+
+<style>
+    .code-editor {
+        font-family: 'Fira Code', 'Cascadia Code', 'Source Code Pro', monospace;
+        background-color: #0f172a !important; 
+        color: #f8fafc !important; 
+        border: 1px solid #1e293b;
+        line-height: 1.6;
+    }
+    .html-glow { color: #fb923c; } 
+    .json-glow { color: #22d3ee; } 
+    .prompt-glow { color: #e879f9; }
+
+    .drag-active {
+        border-color: #06b6d4 !important; 
+        background-color: rgba(6, 182, 212, 0.05) !important;
+    }
+
+    .preview-container [style*="background-color"] { color: #000; }
+    .dark .preview-container { color: #f1f5f9; }
+    .preview-container .nexus-grid th, .preview-container .nexus-grid td { border-color: #cbd5e1; }
+    .dark .preview-container .nexus-grid th, .dark .preview-container .nexus-grid td { border-color: #334155; }
+    
+    .preview-container .editable-cell {
+        cursor: crosshair;
+        background-color: rgba(6, 182, 212, 0.1) !important;
+        border: 1px dashed rgba(6, 182, 212, 0.5);
+        min-width: 30px;
+        display: inline-block;
+        transition: all 0.2s;
+    }
+    .preview-container .editable-cell:hover {
+        background-color: rgba(6, 182, 212, 0.3) !important;
+        border: 1px solid #06b6d4;
+        box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+    }
+
+    .preview-container tr { transition: background-color 0.2s; }
+    .preview-container tr:hover { background-color: rgba(244, 63, 94, 0.05) !important; }
+
+    #inspectorTooltip {
+        transition: opacity 0.2s, transform 0.1s;
+        pointer-events: none;
+        z-index: 100;
+    }
+</style>
+
+<div class="max-w-[1600px] mx-auto pb-12 pt-4 relative">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-6 mb-8">
+        <div class="space-y-2">
+            <h1 class="text-3xl md:text-4xl font-black uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-4">
+                <i class="fa-solid fa-swatchbook text-cyan-600 dark:text-cyan-500"></i>
+                Format Architect
+            </h1>
+            <p class="text-slate-500 dark:text-slate-400 font-bold text-[10px] mt-2 uppercase tracking-widest">
+                Upload Excel &rarr; Refine Grid &rarr; AI Synthesis &rarr; Semantic Edit &rarr; Deploy.
+            </p>
+        </div>
+    </div>
+
+    <form method="POST" action="{% url 'records:template_builder' %}" class="grid grid-cols-1 lg:grid-cols-12 gap-8" id="builderForm">
+        {% csrf_token %}
+        
+        <div class="lg:col-span-3 xl:col-span-3 space-y-8">
+            
+            <div>
+                <h3 class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">
+                    <i class="fa-solid fa-fingerprint text-cyan-500 mr-1"></i> Identity
+                </h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-[9px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1.5">Format Title</label>
+                        <input type="text" name="title" id="inputTitle" required 
+                            class="w-full bg-transparent border-b-2 border-slate-300 dark:border-slate-700 py-1.5 text-sm font-black text-slate-800 dark:text-white focus:border-cyan-500 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1.5">Format ID</label>
+                        <input type="text" name="format_id" id="inputFormatId" 
+                            class="w-full bg-transparent border-b-2 border-slate-300 dark:border-slate-700 py-1.5 text-sm font-black text-slate-800 dark:text-white focus:border-cyan-500 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1.5">Department</label>
+                        <select name="department_id" required 
+                            class="w-full bg-slate-50 dark:bg-[#0b1121] border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 outline-none transition-all cursor-pointer">
+                            {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">
+                    <i class="fa-solid fa-file-signature text-emerald-500 mr-1"></i> Compliance Authority
+                </h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-[9px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1.5">L1 Authority (Maker)</label>
+                        <select name="l1_signature_role" id="l1SignatureSelect" class="w-full bg-slate-50 dark:bg-[#0b1121] border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 outline-none transition-all cursor-pointer">
+                            <option value="">None Required</option>
+                            <option value="PREPARED">Prepared By</option>
+                            <option value="TESTED">Tested By</option>
+                            <option value="CHECKED">Checked By</option>
+                            <option value="CALIBRATED">Calibrated By</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1.5">L2 Authority (Checker)</label>
+                        <select name="l2_signature_role" id="l2SignatureSelect" class="w-full bg-slate-50 dark:bg-[#0b1121] border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 outline-none transition-all cursor-pointer">
+                            <option value="">None Required</option>
+                            <option value="APPROVED">Approved By</option>
+                            <option value="VERIFIED">Verified By</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">
+                    <i class="fa-solid fa-microchip text-indigo-500 mr-1"></i> Operation Logic
+                </h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-[9px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1.5">Data Input Method</label>
+                        <select name="document_type" id="docTypeSelect" 
+                            class="w-full bg-slate-50 dark:bg-[#0b1121] border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 outline-none transition-all cursor-pointer">
+                            <option value="PHYSICAL_OCR">Physical OCR (Scan & AI)</option>
+                            <option value="DIGITAL_ENTRY">Digital Web Form</option>
+                            <option value="PRINT_ONLY">Static / Print Only</option>
+                        </select>
+                    </div>
+                    
+                    <div id="metaConfigRow" class="grid grid-cols-2 gap-4 transition-all duration-300">
+                        <div>
+                            <label class="block text-[9px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1.5">Frequency</label>
+                            <select name="frequency" class="w-full bg-slate-50 dark:bg-[#0b1121] border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 outline-none transition-all cursor-pointer">
+                                <option value="DAILY">Daily</option>
+                                <option value="WEEKLY">Weekly</option>
+                                <option value="MONTHLY">Monthly</option>
+                                <option value="YEARLY">Yearly</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[9px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1.5">Tracking</label>
+                            <select name="tracking_type" id="trackingTypeSelect" class="w-full bg-slate-50 dark:bg-[#0b1121] border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-cyan-500 outline-none transition-all cursor-pointer">
+                                <option value="TIME_ONLY">Time Only</option>
+                                <option value="TIME_AND_CUSTOM">Custom Tracking</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="customCategoryBox" class="hidden animate-in slide-in-from-top-4 bg-cyan-50/50 dark:bg-cyan-900/10 p-5 rounded-xl border border-cyan-200/50 dark:border-cyan-800/50">
+                <label class="block text-[9px] font-black text-cyan-700 dark:text-cyan-500 uppercase tracking-widest mb-2">Custom Grouping Tags</label>
+                <div class="flex gap-2 mb-3">
+                    <input type="text" id="categoryInput" class="flex-1 bg-white dark:bg-slate-900 border border-cyan-200 dark:border-cyan-700 rounded-md px-3 py-1.5 text-xs outline-none focus:border-cyan-500">
+                    <button type="button" id="addCategoryBtn" class="bg-cyan-600 text-white px-3 py-1.5 rounded-md font-black text-[9px] uppercase hover:bg-cyan-500 transition-all">Add</button>
+                </div>
+                <div id="categoryTags" class="flex flex-wrap gap-1.5"></div>
+                <input type="hidden" name="custom_categories" id="customCategoriesData" value="[]">
+            </div>
+        </div>
+
+        <div class="lg:col-span-9 xl:col-span-9 flex flex-col gap-6">
+            
+            <div class="bg-white dark:bg-[#0b1121] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+                <div class="p-8">
+                    <div id="dropZone" class="relative border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-10 text-center transition-all duration-300 hover:border-cyan-500 hover:bg-cyan-50/30 dark:hover:bg-cyan-900/10 group cursor-pointer flex flex-col items-center justify-center min-h-[150px]">
+                        <input type="file" id="excelUpload" accept=".xlsx" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                        <div id="uploadContent" class="flex flex-col items-center pointer-events-none transition-all duration-300">
+                            <div class="w-12 h-12 bg-cyan-50 dark:bg-cyan-900/20 text-cyan-500 rounded-full flex items-center justify-center text-xl mb-3 group-hover:scale-110 transition-transform shadow-inner">
+                                <i class="fa-solid fa-file-excel"></i>
+                            </div>
+                            <h3 class="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">Upload Excel Blueprint</h3>
+                            <p id="fileNameDisplay" class="text-slate-500 dark:text-slate-400 font-bold text-[10px] mt-1 uppercase tracking-widest max-w-sm">
+                                Drag and drop your <span class="text-emerald-500">.xlsx</span> file here. (.xls not supported)
+                            </p>
+                        </div>
+                        <div id="loadingState" class="hidden flex-col items-center pointer-events-none">
+                            <div class="w-10 h-10 border-4 border-slate-200 dark:border-slate-700 border-t-cyan-500 rounded-full animate-spin mb-3"></div>
+                            <h3 class="text-xs font-black text-cyan-600 dark:text-cyan-400 uppercase tracking-tight">Calculating Python Matrix...</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="rawPreviewSection" class="hidden flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                <div class="bg-white dark:bg-[#0b1121] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col relative">
+                    <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex justify-between items-center shrink-0 z-10">
+                        <div class="flex items-center gap-3">
+                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center"><i class="fa-brands fa-python text-cyan-500 mr-2 text-sm"></i> 1. Raw Python Interpretation</span>
+                            <span class="bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 text-[8px] px-2 py-0.5 rounded uppercase font-black tracking-widest border border-rose-200 dark:border-rose-800"><i class="fa-solid fa-mouse-pointer mr-1"></i> Right-Click a row to delete</span>
+                        </div>
+                        <button type="button" id="synthesizeBtn" onclick="callGeminiAPI()" class="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white px-5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-cyan-600/20 flex items-center gap-2">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Synthesize via Gemini
+                        </button>
+                    </div>
+                    <div id="rawTablePreview" class="preview-container p-8 overflow-x-auto bg-slate-50/50 dark:bg-transparent max-h-[400px] custom-scrollbar">
+                    </div>
+                </div>
+            </div>
+
+            <div id="resultsSection" class="hidden flex-col gap-6 animate-in fade-in slide-in-from-bottom-8 duration-500">
+                
+                <div class="bg-white dark:bg-[#0b1121] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col relative mt-4">
+                    <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex justify-between items-center shrink-0 z-10 relative">
+                        <div class="flex items-center gap-3">
+                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center"><i class="fa-solid fa-eye text-cyan-500 mr-2 text-sm"></i> 2. Semantic Smart Preview</span>
+                            <span class="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 text-[8px] px-2 py-0.5 rounded uppercase font-black tracking-widest border border-cyan-200 dark:border-cyan-800"><i class="fa-solid fa-pen mr-1"></i> Double-Click cells to edit</span>
+                            <span class="bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 text-[8px] px-2 py-0.5 rounded uppercase font-black tracking-widest border border-rose-200 dark:border-rose-800"><i class="fa-solid fa-trash mr-1"></i> Right-Click row to delete</span>
+                        </div>
+                    </div>
+                    <div id="aiTablePreview" class="preview-container p-8 overflow-x-auto bg-slate-50/50 dark:bg-transparent min-h-[250px] max-h-[500px] custom-scrollbar transition-all duration-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 transition-all duration-500">
+                    <div id="htmlBox" class="bg-white dark:bg-[#0b1121] rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[400px] transition-all duration-500">
+                        <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 flex justify-between items-center shrink-0">
+                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"><i class="fa-brands fa-html5 html-glow mr-2 text-sm"></i> Semantic HTML</span>
+                        </div>
+                        <textarea id="htmlOutput" name="html_layout" required class="w-full flex-1 code-editor p-4 text-[11px] custom-scrollbar outline-none text-orange-100 resize-none"></textarea>
+                    </div>
+
+                    <div id="aiConfigSection" class="flex flex-col gap-6 h-[400px] transition-all duration-500">
+                        <div id="schemaBoxContainer" class="bg-white dark:bg-[#0b1121] rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col flex-1">
+                            <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 flex justify-between items-center shrink-0">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"><i class="fa-solid fa-code json-glow mr-2 text-sm"></i> Semantic Schema</span>
+                            </div>
+                            <textarea id="schemaOutput" name="ai_prompt_schema" class="w-full flex-1 code-editor p-4 text-[11px] custom-scrollbar outline-none text-cyan-100 resize-none"></textarea>
+                        </div>
+                        <div id="promptBoxContainer" class="bg-white dark:bg-[#0b1121] rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[120px]">
+                            <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-2 flex justify-between items-center shrink-0">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 px-2"><i class="fa-solid fa-robot prompt-glow mr-2"></i> Custom Prompt</span>
+                            </div>
+                            <textarea id="promptOutput" name="custom_extraction_prompt" class="w-full flex-1 code-editor p-3 text-[11px] custom-scrollbar outline-none text-fuchsia-100 resize-none"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="group w-full bg-slate-900 dark:bg-cyan-600 text-white font-black uppercase tracking-widest py-5 rounded-xl hover:bg-cyan-600 dark:hover:bg-cyan-500 shadow-xl shadow-cyan-600/20 transition-all flex items-center justify-center gap-3 mt-4">
+                    <i class="fa-solid fa-rocket group-hover:-translate-y-1 transition-transform"></i> 
+                    Publish Template to Database
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div id="inspectorTooltip" class="fixed opacity-0 bg-slate-900 text-white px-3 py-2 rounded-lg shadow-2xl border border-slate-700 text-[10px] font-black tracking-widest transform -translate-x-1/2 -translate-y-full flex flex-col gap-1 z-[9999]">
+    <div class="flex items-center gap-2 border-b border-slate-700 pb-1 mb-1">
+        <span class="text-slate-400">ID:</span> <span id="ttId" class="text-cyan-400"></span>
+    </div>
+    <div id="ttStatus" class="flex items-center gap-1.5 text-emerald-400">
+        <i class="fa-solid fa-circle-check"></i> Mapped in Schema
+    </div>
+</div>
+
+<div id="contextMenu" class="hidden fixed bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-[10000] overflow-hidden w-40">
+    <button type="button" id="deleteRowBtn" class="w-full text-left px-4 py-3 text-xs font-black uppercase tracking-widest text-rose-400 hover:bg-slate-800 transition-colors flex items-center gap-3">
+        <i class="fa-solid fa-trash"></i> Delete Row
+    </button>
+</div>
+
+<div id="editIdModal" class="hidden fixed inset-0 bg-slate-900/60 z-[10000] flex items-center justify-center backdrop-blur-sm transition-all duration-200">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl w-full max-w-sm animate-in zoom-in-95">
+        <h3 class="text-xs font-black text-cyan-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-pen-nib"></i> Edit Semantic ID
+        </h3>
+        
+        <input type="text" id="newIdInput" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-cyan-500 transition-colors shadow-inner">
+        
+        <label class="flex items-center gap-2 text-[10px] text-slate-400 mt-4 mb-6 cursor-pointer group">
+            <input type="checkbox" id="rowOnlyToggle" class="rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-slate-900 cursor-pointer">
+            <span class="group-hover:text-slate-300 transition-colors">Apply to this cell ONLY (Breaks repeating column logic)</span>
+        </label>
+
+        <div class="flex justify-end gap-3">
+            <button type="button" onclick="closeEditModal()" class="px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Cancel</button>
+            <button type="button" id="saveNewIdBtn" class="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors shadow-lg">Save & Sync</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const csrfToken = '{{ csrf_token }}';
+    const GEMINI_API_KEY = "REDACTED"; 
+    
+    let currentSchemaObj = {};
+    let targetRowElement = null; 
+    let targetCellElement = null; 
+
+    window.masterAiHtml = "";
+    window.masterAiSchema = "";
+    window.masterAiPrompt = "";
+
+    // --- UPLOAD LOGIC ---
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('excelUpload');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+        dropZone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); });
+    });
+    dropZone.addEventListener('dragover', () => dropZone.classList.add('drag-active'));
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-active'));
+    dropZone.addEventListener('drop', () => dropZone.classList.remove('drag-active'));
+
+    fileInput.addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        fileNameDisplay.innerHTML = `<span class="text-cyan-500 font-black">${file.name}</span> attached.`;
+        document.getElementById('uploadContent').classList.add('hidden');
+        document.getElementById('loadingState').classList.remove('hidden');
+        document.getElementById('loadingState').classList.add('flex');
+        document.getElementById('rawPreviewSection').classList.add('hidden');
+        document.getElementById('resultsSection').classList.add('hidden');
+
+        const formData = new FormData();
+        formData.append('excel_file', file);
+
+        try {
+            const response = await fetch('{% url "records:api_excel_to_html" %}', { 
+                method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById('rawTablePreview').innerHTML = data.html;
+                document.getElementById('rawPreviewSection').classList.remove('hidden');
+                document.getElementById('rawPreviewSection').classList.add('flex');
+            } else {
+                alert('Failed to parse Excel.');
+            }
+        } catch (error) {
+            alert('Network error.');
+        } finally {
+            fileInput.value = ''; 
+            document.getElementById('uploadContent').classList.remove('hidden');
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('flex');
+        }
+    });
+
+  
+    // --- GEMINI SYNTHESIS WITH COMPLIANCE ---
+    async function callGeminiAPI() {
+        const currentHtmlBlueprint = document.getElementById('rawTablePreview').innerHTML;
+
+        if (!currentHtmlBlueprint || currentHtmlBlueprint.trim() === "") {
+            return alert("No HTML found. Upload an Excel file first.");
+        }
+
+        const btn = document.getElementById('synthesizeBtn');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Synthesizing...`;
+        btn.disabled = true;
+
+        const promptText = `
+        You are an expert data architect building an enterprise Quality Management System. 
+        I am giving you a raw HTML table structure generated from an Excel form.
+        
+        YOUR TASKS:
+        1. Replace generic dummy IDs ('field_rX_cY') in the <span class="editable-cell"> tags with precise, semantic snake_case IDs.
+        2. REPEATING GRIDS (CRITICAL): If you see a grid of data rows, map them into a single generic JSON array called "rows". DO NOT hardcode row numbers in the schema keys (e.g., use "grade" NOT "row_1_grade").
+        3. ROW IDENTIFIERS (CRITICAL): If the first column of a repeating grid has hardcoded numbers (like 1, 2, 3), you MUST convert them into editable spans (e.g., <span contenteditable="true" class="editable-cell" id="row_1_machine_no">1</span>). Ensure "machine_no" (or equivalent) is included in the generic "rows" schema.
+        4. Write a 2-3 sentence 'custom_extraction_prompt' that tells an OCR AI what this document is and specific traps to watch out for.
+        5. Extract the Document Title and Document ID (if present) as strings.
+        6. SIGNATURE IDS: If you see an empty cell for a signature (adjacent to "Prepared By", "Approved By", etc.), assign it a specific ID: id="sig_prepared", id="sig_approved", id="sig_tested", id="sig_verified", id="sig_checked", or id="sig_calibrated".
+        7. COMPLIANCE EXTRACTION: Look at the signature blocks (usually at the bottom). Identify the required L1 (Maker) and L2 (Checker) roles.
+           - For L1, return one of: 'PREPARED', 'TESTED', 'CHECKED', 'CALIBRATED', or null if none found.
+           - For L2, return one of: 'APPROVED', 'VERIFIED', or null if none found.
+
+        OUTPUT FORMAT:
+        Return ONLY a valid JSON object. No markdown backticks.
+        Structure:
+        {
+            "document_title": "Title",
+            "document_id": "ID",
+            "l1_signature_role": "TESTED",
+            "l2_signature_role": "APPROVED",
+            "html_layout": "<table>...</table>",
+            "json_schema": { "field_name": "string", "rows": [ { "machine_no": "string", "col_name": "string" } ] },
+            "custom_extraction_prompt": "Instruction..."
+        }
+        
+        RAW HTML TO PROCESS:
+        ${currentHtmlBlueprint}
+        `;
+
+        try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    contents: [{ parts: [{ text: promptText }] }],
+                    generationConfig: { response_mime_type: "application/json" } 
+                })
+            });
+
+            const aiData = await res.json();
+            if(!res.ok) throw new Error(aiData.error?.message || "Unknown Google API Error");
+
+            let jsonText = aiData.candidates[0].content.parts[0].text;
+            jsonText = jsonText.replace(/```json\n?|```/g, '').trim(); 
+            const parsedResponse = JSON.parse(jsonText);
+
+            if (parsedResponse.document_title) document.getElementById('inputTitle').value = parsedResponse.document_title;
+            if (parsedResponse.document_id) document.getElementById('inputFormatId').value = parsedResponse.document_id;
+            
+            // Auto-select Signatures based on AI interpretation
+            if (parsedResponse.l1_signature_role) document.getElementById('l1SignatureSelect').value = parsedResponse.l1_signature_role;
+            if (parsedResponse.l2_signature_role) document.getElementById('l2SignatureSelect').value = parsedResponse.l2_signature_role;
+
+            window.masterAiHtml = parsedResponse.html_layout;
+            window.masterAiSchema = JSON.stringify(parsedResponse.json_schema, null, 4);
+            window.masterAiPrompt = parsedResponse.custom_extraction_prompt;
+            currentSchemaObj = parsedResponse.json_schema; 
+
+            applyDocTypeRules(document.getElementById('docTypeSelect').value);
+            
+            document.getElementById('resultsSection').classList.remove('hidden');
+            document.getElementById('resultsSection').classList.add('flex');
+            setTimeout(() => document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' }), 100);
+
+        } catch (error) {
+            console.error(error);
+            alert("Synthesis Failed:\n" + error.message);
+        } finally {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    }
+
+    // --- DYNAMIC DOC TYPE TRANSFORMATION LOGIC ---
+    document.getElementById('docTypeSelect').addEventListener('change', function() {
+        applyDocTypeRules(this.value);
+    });
+
+    function applyDocTypeRules(docType) {
+        
+        const metaConfigRow = document.getElementById('metaConfigRow');
+        const customCategoryBox = document.getElementById('customCategoryBox');
+        
+        if (docType === 'PRINT_ONLY') {
+            metaConfigRow.classList.add('hidden', 'opacity-0');
+            customCategoryBox.classList.add('hidden'); 
+        } else {
+            metaConfigRow.classList.remove('hidden', 'opacity-0');
+            document.getElementById('trackingTypeSelect').dispatchEvent(new Event('change'));
+        }
+
+        if (!window.masterAiHtml) return; 
+
+        const schemaInput = document.getElementById('schemaOutput');
+        const promptInput = document.getElementById('promptOutput');
+        const htmlInput = document.getElementById('htmlOutput');
+        const preview = document.getElementById('aiTablePreview');
+        const configSection = document.getElementById('aiConfigSection');
+        const promptBoxContainer = document.getElementById('promptBoxContainer');
+        const htmlBox = document.getElementById('htmlBox');
+
+        let tempHtml = window.masterAiHtml;
+
+        if (docType === 'PHYSICAL_OCR') {
+            configSection.classList.remove('hidden');
+            promptBoxContainer.classList.remove('hidden');
+            htmlBox.classList.remove('lg:col-span-2');
+            
+            schemaInput.value = window.masterAiSchema;
+            promptInput.value = window.masterAiPrompt;
+            schemaInput.required = true;
+            
+            htmlInput.value = tempHtml;
+            preview.innerHTML = tempHtml;
+            
+        } else if (docType === 'DIGITAL_ENTRY') {
+            configSection.classList.remove('hidden');
+            promptBoxContainer.classList.add('hidden'); 
+            htmlBox.classList.remove('lg:col-span-2');
+            
+            schemaInput.value = window.masterAiSchema; 
+            promptInput.value = ""; 
+            schemaInput.required = true;
+
+            htmlInput.value = tempHtml;
+            preview.innerHTML = tempHtml;
+            
+        } else if (docType === 'PRINT_ONLY') {
+            configSection.classList.add('hidden');
+            htmlBox.classList.add('lg:col-span-2');
+            
+            schemaInput.value = "{}"; 
+            promptInput.value = "";   
+            schemaInput.required = false;
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(tempHtml, 'text/html');
+            const cells = doc.querySelectorAll('.editable-cell');
+            
+            cells.forEach(cell => {
+                cell.removeAttribute('contenteditable');
+                cell.classList.remove('editable-cell');
+            });
+
+            const finalHtml = doc.body.innerHTML;
+            htmlInput.value = finalHtml;
+            preview.innerHTML = finalHtml;
+        }
+    }
+
+
+    // --- HOVER INSPECTOR LOGIC ---
+    const aiPreviewContainer = document.getElementById('aiTablePreview');
+    const tooltip = document.getElementById('inspectorTooltip');
+    const ttId = document.getElementById('ttId');
+    const ttStatus = document.getElementById('ttStatus');
+
+    function isIdInSchema(id, schema) {
+        if(schema.hasOwnProperty(id)) return true;
+        for (const key in schema) {
+            if (Array.isArray(schema[key]) && schema[key].length > 0) {
+                if (JSON.stringify(schema[key]).includes(id.replace(/row_\d+_/g, ''))) return true;
+                if (JSON.stringify(schema[key]).includes(id)) return true;
+            }
+        }
+        return false;
+    }
+
+    aiPreviewContainer.addEventListener('mousemove', (e) => {
+        if (e.target.classList.contains('editable-cell') && document.getElementById('docTypeSelect').value === 'PHYSICAL_OCR') {
+            const cellId = e.target.id;
+            ttId.innerText = cellId || "NO ID ASSIGNED";
+            
+            if (cellId && isIdInSchema(cellId, currentSchemaObj)) {
+                ttStatus.innerHTML = '<i class="fa-solid fa-circle-check"></i> Mapped in Schema';
+                ttStatus.className = 'flex items-center gap-1.5 text-emerald-400 mt-1 pt-1 border-t border-slate-700/50';
+            } else {
+                ttStatus.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Missing in Schema';
+                ttStatus.className = 'flex items-center gap-1.5 text-rose-400 mt-1 pt-1 border-t border-slate-700/50';
+            }
+
+            tooltip.style.opacity = '1';
+            tooltip.style.left = e.pageX + 'px';
+            tooltip.style.top = (e.pageY - 15) + 'px'; 
+        } else {
+            tooltip.style.opacity = '0';
+        }
+    });
+
+    aiPreviewContainer.addEventListener('mouseleave', () => { tooltip.style.opacity = '0'; });
+
+    // --- RIGHT-CLICK ROW DELETION ---
+    const contextMenu = document.getElementById('contextMenu');
+    
+    document.addEventListener('contextmenu', function(e) {
+        const tr = e.target.closest('tr');
+        if(tr && (tr.closest('#rawTablePreview') || tr.closest('#aiTablePreview'))) {
+            e.preventDefault();
+            targetRowElement = tr;
+            contextMenu.style.left = e.pageX + 'px';
+            contextMenu.style.top = e.pageY + 'px';
+            contextMenu.classList.remove('hidden');
+        } else {
+            if (contextMenu) contextMenu.classList.add('hidden');
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (contextMenu && !contextMenu.contains(e.target)) contextMenu.classList.add('hidden');
+    });
+
+    document.getElementById('deleteRowBtn')?.addEventListener('click', function() {
+        if(targetRowElement) {
+            const isAiPreview = targetRowElement.closest('#aiTablePreview') !== null;
+            targetRowElement.remove();
+            contextMenu.classList.add('hidden');
+            
+            if(isAiPreview) {
+                const newHtml = document.getElementById('aiTablePreview').innerHTML.trim();
+                document.getElementById('htmlOutput').value = newHtml;
+                window.masterAiHtml = newHtml; 
+            }
+        }
+    });
+
+    // --- BULK SMART EDITING LOGIC ---
+    const editIdModal = document.getElementById('editIdModal');
+    const newIdInput = document.getElementById('newIdInput');
+    const rowOnlyToggle = document.getElementById('rowOnlyToggle');
+
+    aiPreviewContainer.addEventListener('dblclick', function(e) {
+        if (e.target.classList.contains('editable-cell') && document.getElementById('docTypeSelect').value === 'PHYSICAL_OCR') {
+            targetCellElement = e.target;
+            newIdInput.value = targetCellElement.id;
+            rowOnlyToggle.checked = false; // Reset toggle
+            editIdModal.classList.remove('hidden');
+            setTimeout(() => newIdInput.focus(), 100);
+            tooltip.style.opacity = '0'; 
+        }
+    });
+
+    function closeEditModal() {
+        editIdModal.classList.add('hidden');
+        targetCellElement = null;
+    }
+
+    document.getElementById('saveNewIdBtn')?.addEventListener('click', function() {
+        if(!targetCellElement) return;
+        
+        const oldId = targetCellElement.id;
+        const newId = newIdInput.value.trim();
+        const rowOnly = rowOnlyToggle.checked;
+
+        if(newId && newId !== oldId) {
+            
+            const oldMatch = oldId.match(/^row_(\d+)_(.+)$/);
+            const newMatch = newId.match(/^row_(\d+)_(.+)$/);
+
+            if (oldMatch && !rowOnly) {
+                const oldBase = oldMatch[2];
+                const newBase = newMatch ? newMatch[2] : newId.replace(/^row_\d+_/, ''); 
+                
+                const cells = document.getElementById('aiTablePreview').querySelectorAll('.editable-cell');
+                cells.forEach(cell => {
+                    const cellMatch = cell.id.match(/^row_(\d+)_(.+)$/);
+                    if (cellMatch && cellMatch[2] === oldBase) {
+                        cell.id = `row_${cellMatch[1]}_${newBase}`;
+                    }
+                });
+
+                currentSchemaObj = deepRenameKey(currentSchemaObj, oldBase, newBase);
+
+            } else {
+                targetCellElement.id = newId;
+                
+                if(!oldMatch || rowOnly) {
+                    currentSchemaObj = deepRenameKey(currentSchemaObj, oldId, newId);
+                }
+            }
+
+            const newHtml = document.getElementById('aiTablePreview').innerHTML.trim();
+            document.getElementById('htmlOutput').value = newHtml;
+            window.masterAiHtml = newHtml; 
+
+            document.getElementById('schemaOutput').value = JSON.stringify(currentSchemaObj, null, 4);
+            window.masterAiSchema = document.getElementById('schemaOutput').value;
+        }
+        
+        closeEditModal();
+    });
+
+    function deepRenameKey(obj, oldKey, newKey) {
+        if (typeof obj !== 'object' || obj === null) return obj;
+        if (Array.isArray(obj)) return obj.map(item => deepRenameKey(item, oldKey, newKey));
+        
+        const newObj = {};
+        for (const key in obj) {
+            if (key === oldKey) newObj[newKey] = deepRenameKey(obj[key], oldKey, newKey);
+            else newObj[key] = deepRenameKey(obj[key], oldKey, newKey);
+        }
+        return newObj;
+    }
+
+    // --- TRACKING & CATEGORY LOGIC ---
+    const trackingSelect = document.getElementById('trackingTypeSelect');
+    const customCategoryBox = document.getElementById('customCategoryBox');
+    
+    trackingSelect.addEventListener('change', function() {
+        if (this.value === 'TIME_AND_CUSTOM' && document.getElementById('docTypeSelect').value !== 'PRINT_ONLY') {
+            customCategoryBox.classList.remove('hidden');
+        } else {
+            customCategoryBox.classList.add('hidden');
+        }
+    });
+
+    const categoryInput = document.getElementById('categoryInput');
+    const addCategoryBtn = document.getElementById('addCategoryBtn');
+    const categoryTags = document.getElementById('categoryTags');
+    const customCategoriesData = document.getElementById('customCategoriesData');
+    let categories = [];
+
+    function updateCategoryTags() {
+        categoryTags.innerHTML = '';
+        categories.forEach((cat, index) => {
+            const tag = document.createElement('span');
+            tag.className = 'bg-cyan-100 dark:bg-cyan-900/40 border border-cyan-200 dark:border-cyan-800 text-cyan-800 dark:text-cyan-400 text-[9px] font-black px-2 py-1 rounded flex items-center gap-1.5 shadow-sm uppercase tracking-widest';
+            tag.innerHTML = `${cat} <i class="fa-solid fa-xmark cursor-pointer hover:text-rose-500" onclick="removeCategory(${index})"></i>`;
+            categoryTags.appendChild(tag);
+        });
+        customCategoriesData.value = JSON.stringify(categories);
+    }
+
+    function addCategory() {
+        const val = categoryInput.value.trim();
+        if (val && !categories.includes(val)) {
+            categories.push(val);
+            updateCategoryTags();
+            categoryInput.value = '';
+        }
+    }
+    window.removeCategory = (index) => { categories.splice(index, 1); updateCategoryTags(); };
+    addCategoryBtn.addEventListener('click', addCategory);
+    categoryInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); addCategory(); } });
+
+</script>
+{% endblock %}

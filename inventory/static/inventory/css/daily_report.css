@@ -1,0 +1,3 @@
+/* Center Category Filter Toggles */
+.table-filter-HD .col-cat-LD, .table-filter-HD .col-cat-NONE { display: none !important; }
+.table-filter-LD .col-cat-HD, .table-filter-LD .col-cat-NONE { display: none !important; }

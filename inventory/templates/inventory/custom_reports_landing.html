@@ -1,0 +1,48 @@
+{% extends 'inventory/base.html' %}
+
+{% block content %}
+<div class="max-w-[100rem] mx-auto py-4 font-sans relative flex flex-col h-[calc(100vh-2rem)] min-h-[700px]">
+    
+    <div class="mb-8 shrink-0">
+        <h1 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tighter flex items-center gap-3 uppercase font-heading">
+            <i class="fa-solid fa-chart-pie text-primary"></i>
+            Custom Reports Hub
+        </h1>
+        <p class="text-xs text-slate-500 dark:text-slate-400 font-bold mt-2 uppercase tracking-widest">Select a specialized reporting module to generate your data</p>
+    </div>
+
+    <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pb-4 pr-2">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <a href="{% url 'pivot_report' %}" class="bg-white dark:bg-slate-900 rounded-md p-8 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-primary transition-all duration-300 group flex flex-col items-start cursor-pointer h-full">
+                
+                <div class="w-14 h-14 bg-primary/10 border border-primary/20 rounded-md flex items-center justify-center mb-8 group-hover:scale-110 transition-transform shadow-sm shrink-0">
+                    <i class="fa-solid fa-table-cells text-2xl text-primary"></i>
+                </div>
+                
+                <h2 class="text-xl font-black text-slate-900 dark:text-white mb-3 uppercase tracking-wider font-heading">Center vs. Item Pivot</h2>
+                <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-relaxed mb-10">Generate dynamic closing balance matrices filtering specific items across multiple physical centers</p>
+                
+                <span class="mt-auto text-primary font-black text-[10px] uppercase tracking-widest flex items-center gap-2 group-hover:translate-x-2 transition-transform">
+                    Open Report <i class="fa-solid fa-arrow-right text-xs"></i>
+                </span>
+            </a>
+
+            <a href="{% url 'target_report' %}" class="bg-white dark:bg-slate-900 rounded-md p-8 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-accent transition-all duration-300 group flex flex-col items-start cursor-pointer h-full">
+                
+                <div class="w-14 h-14 bg-accent/10 border border-accent/20 rounded-md flex items-center justify-center mb-8 group-hover:scale-110 transition-transform shadow-sm shrink-0">
+                    <i class="fa-solid fa-bullseye text-2xl text-brand dark:text-accent"></i>
+                </div>
+                
+                <h2 class="text-xl font-black text-slate-900 dark:text-white mb-3 uppercase tracking-wider font-heading">Target vs. Actuals Tracker</h2>
+                <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-relaxed mb-10">Create configurations with monthly targets and track daily inwards progress to calculate exact shortfalls</p>
+                
+                <span class="mt-auto text-accent font-black text-[10px] uppercase tracking-widest flex items-center gap-2 group-hover:translate-x-2 transition-transform">
+                    Open Tracker <i class="fa-solid fa-arrow-right text-xs"></i>
+                </span>
+            </a>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

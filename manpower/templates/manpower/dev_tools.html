@@ -1,0 +1,57 @@
+{% extends 'manpower/base.html' %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto py-12 font-sans space-y-8">
+    <div class="text-center">
+        <i class="fa-solid fa-flask text-6xl text-emerald-500 mb-4"></i>
+        <h1 class="text-3xl font-bold text-slate-800 dark:text-white">Developer Testing Tools</h1>
+        <p class="text-slate-500 mt-2">Instantly seed the database with fake data to test the Analytics Hub.</p>
+    </div>
+
+    <div id="status-message" class="hidden p-4 rounded-xl font-bold text-center"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <button onclick="runTool('seed')" class="bg-emerald-600 hover:bg-emerald-700 text-white p-8 rounded-2xl shadow-lg transition-transform hover:scale-105 group">
+            <i class="fa-solid fa-bolt text-4xl mb-4 text-emerald-200 group-hover:text-white transition-colors"></i>
+            <h2 class="text-xl font-bold">Seed February 2026</h2>
+            <p class="text-sm text-emerald-100 mt-2">Creates fake contractors, workers, and daily production/attendance records for the entire month.</p>
+        </button>
+
+        <button onclick="runTool('nuke')" class="bg-red-600 hover:bg-red-700 text-white p-8 rounded-2xl shadow-lg transition-transform hover:scale-105 group">
+            <i class="fa-solid fa-skull-crossbones text-4xl mb-4 text-red-200 group-hover:text-white transition-colors"></i>
+            <h2 class="text-xl font-bold">Nuke All Data</h2>
+            <p class="text-sm text-red-100 mt-2">Deletes ALL Contractors, People, and Daily Records. Irreversible.</p>
+        </button>
+    </div>
+</div>
+
+<script>
+    async function runTool(action) {
+        if (action === 'nuke' && !confirm("Are you sure? This deletes ALL manpower data!")) return;
+        
+        const msgBox = document.getElementById('status-message');
+        msgBox.className = "p-4 rounded-xl font-bold text-center bg-slate-200 text-slate-800 animate-pulse";
+        msgBox.innerText = "Processing...";
+        msgBox.classList.remove('hidden');
+
+        try {
+            const url = action === 'seed' ? "{% url 'seed_dummy_data' %}" : "{% url 'nuke_dummy_data' %}";
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            });
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                msgBox.className = "p-4 rounded-xl font-bold text-center bg-emerald-100 text-emerald-800 border border-emerald-300";
+                msgBox.innerText = data.message;
+            } else {
+                msgBox.className = "p-4 rounded-xl font-bold text-center bg-red-100 text-red-800 border border-red-300";
+                msgBox.innerText = "Error: " + data.message;
+            }
+        } catch(e) {
+            msgBox.innerText = "Network Error.";
+        }
+    }
+</script>
+{% endblock %}

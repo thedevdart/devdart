@@ -1,0 +1,156 @@
+/* Custom Scrollbar - Minimalist */
+.custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 6px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Global Modals */
+#saveSuccessOverlay { transition: opacity 0.2s ease-out; opacity: 0; }
+#saveSuccessOverlay.active { opacity: 1; }
+#saveSuccessOverlay .success-content { transition: transform 0.2s ease-out; transform: scale(0.95); }
+#saveSuccessOverlay.active .success-content { transform: scale(1); }
+
+@keyframes spin-clockwise-heavy { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.spin-heavy { animation: spin-clockwise-heavy 1.2s linear infinite; }
+
+/* =========================================
+   SAAS SIDEBAR STATE (FOUC & COLLAPSE)
+========================================= */
+#main-sidebar { 
+    width: 16rem; 
+    /* Added transform transition for mobile slide-in */
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+}
+
+.sidebar-text { 
+    transition: opacity 0.2s ease-out, max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+    opacity: 1; 
+    max-width: 200px;
+    white-space: nowrap; 
+    overflow: hidden;
+}
+
+/* CRITICAL: Collapsed State only applies to Desktop! 
+  On mobile, the sidebar uses translate-x to hide completely off-screen.
+*/
+@media (min-width: 768px) {
+    html.sidebar-collapsed #main-sidebar { width: 4.5rem !important; }
+    html.sidebar-collapsed .sidebar-text { opacity: 0 !important; max-width: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important; }
+    html.sidebar-collapsed #sidebar-toggle-icon { transform: rotate(180deg); }
+
+    /* Center the icons perfectly by removing padding and gap */
+    html.sidebar-collapsed .nav-item { 
+        justify-content: center !important; 
+        padding-left: 0 !important; 
+        padding-right: 0 !important; 
+        gap: 0 !important; 
+    }
+}
+
+/* =========================================
+   UNIQUE ACTIVE STATE INDICATOR & COLORS
+========================================= */
+.nav-item { position: relative; }
+
+/* Sidebar Icon Colors */
+.nav-item i { color: rgba(255, 255, 255, 0.4); transition: color 0.2s; }
+.nav-item:hover i { color: #FF8965; } /* Rose Orange Hover */
+.nav-item.active-nav i { color: #FF8965 !important; }
+
+/* WhatsApp Special Colors */
+.nav-item.whatsapp-link:hover i { color: #96CD1E; } /* Green Hover */
+.nav-item.whatsapp-link.active-nav i { color: #96CD1E !important; }
+
+/* The custom offset floating bar for the active link */
+.active-nav::before {
+    content: '';
+    position: absolute;
+    left: -8px; 
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 18px;
+    background-color: #FF8965; /* Rose Orange indicator */
+    border-radius: 0 6px 6px 0;
+    transition: all 0.3s ease;
+}
+
+/* =========================================
+   SPA LOADING BAR
+========================================= */
+#top-loader {
+    position: fixed;
+    top: 0; left: 0; right: 0; height: 3px;
+    background-color: #FF8965;
+    z-index: 99999;
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+    opacity: 0;
+    pointer-events: none;
+}
+#top-loader.loading { opacity: 1; transform: scaleX(0.4); transition: transform 2s cubic-bezier(0.1, 0.5, 0.1, 1); }
+#top-loader.finishing { transform: scaleX(1); transition: transform 0.2s ease-out; }
+
+/* ========================================================
+   GLOBAL FLATPICKR THEME (SAAS SYNC)
+======================================================== */
+/* Global Calendar Font & Container */
+.flatpickr-calendar {
+    font-family: inherit !important; 
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+    border-radius: 6px !important;
+    padding-bottom: 0.5rem !important;
+}
+.dark .flatpickr-calendar {
+    background: #1e293b !important; 
+    border-color: #334155 !important; 
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5) !important;
+}
+
+/* Arrows (Uses Rose Orange for interaction) */
+.flatpickr-prev-month svg, .flatpickr-next-month svg { fill: #64748b !important; }
+.dark .flatpickr-prev-month svg, .dark .flatpickr-next-month svg { fill: #cbd5e1 !important; }
+.flatpickr-prev-month:hover svg, .flatpickr-next-month:hover svg { fill: #FF8965 !important; }
+.dark .flatpickr-prev-month:hover svg, .dark .flatpickr-next-month:hover svg { fill: #FF8965 !important; }
+
+/* Headers & Dropdowns */
+.flatpickr-current-month { display: flex !important; align-items: center !important; justify-content: center !important; gap: 0.5rem; padding-top: 0.25rem !important; }
+.flatpickr-monthDropdown-months { appearance: none !important; background: transparent !important; border: none !important; font-weight: 700 !important; color: #1e293b !important; cursor: pointer !important; outline: none !important; }
+.dark .flatpickr-monthDropdown-months { color: #f8fafc !important; }
+.flatpickr-monthDropdown-months option { color: #0f172a !important; background: #ffffff !important; }
+.dark .flatpickr-monthDropdown-months option { color: #f8fafc !important; background: #1e293b !important; }
+
+/* Custom Year Dropdown */
+.numInputWrapper span.arrowUp, .numInputWrapper span.arrowDown { display: none !important; }
+.cur-year-dropdown { background: transparent; border: none; font-weight: 700; color: #1e293b; cursor: pointer; outline: none; font-size: inherit; }
+.dark .cur-year-dropdown { color: #f8fafc; }
+.cur-year-dropdown option { color: #0f172a; background: #ffffff; }
+.dark .cur-year-dropdown option { color: #f8fafc; background: #1e293b; }
+
+/* Weekdays & Days */
+.flatpickr-weekday { font-weight: 700 !important; color: #64748b !important; font-size: 0.8rem !important; }
+.dark .flatpickr-weekday { color: #94a3b8 !important; }
+.flatpickr-day { color: #334155 !important; border-radius: 4px !important; transition: all 0.2s !important; font-weight: 600 !important; }
+.dark .flatpickr-day { color: #cbd5e1 !important; }
+.flatpickr-day:hover { background: #f1f5f9 !important; border-color: #f1f5f9 !important; }
+.dark .flatpickr-day:hover { background: #334155 !important; border-color: #334155 !important; }
+
+/* Ghost Dates */
+.flatpickr-day.prevMonthDay, .flatpickr-day.nextMonthDay { color: #cbd5e1 !important; }
+.dark .flatpickr-day.prevMonthDay, .dark .flatpickr-day.nextMonthDay { color: #475569 !important; }
+
+/* Range & Active Highlights (Using the Green #96CD1E for selection!) */
+.flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange {
+    background: #96CD1E !important; border-color: #96CD1E !important; color: #01444e !important; font-weight: 800 !important;
+}
+.flatpickr-day.inRange {
+    background: rgba(150, 205, 30, 0.1) !important; border-color: rgba(150, 205, 30, 0.1) !important; color: #96CD1E !important; box-shadow: -5px 0 0 rgba(150, 205, 30, 0.1), 5px 0 0 rgba(150, 205, 30, 0.1) !important;
+}
+.dark .flatpickr-day.inRange {
+    background: rgba(150, 205, 30, 0.15) !important; border-color: rgba(150, 205, 30, 0.15) !important; color: #96CD1E !important; box-shadow: -5px 0 0 rgba(150, 205, 30, 0.15), 5px 0 0 rgba(150, 205, 30, 0.15) !important;
+}

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage {{ target_user.username }} | Nexus Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 font-sans p-6">
+
+    <div class="max-w-4xl mx-auto" x-data="userManager()">
+         
+        <div class="flex items-center justify-between mb-8">
+            <div class="flex items-center gap-4">
+                <a href="{% url 'manage_access_dashboard' %}" class="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm transition-all">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <div>
+                    <h1 class="text-3xl font-black tracking-tight flex items-center gap-3">
+                        {{ target_user.username }} 
+                        {% if target_user.is_superuser %}
+                            <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-bold uppercase tracking-wider mt-1"><i class="fa-solid fa-crown"></i> Superuser</span>
+                        {% endif %}
+                    </h1>
+                    <p class="text-slate-500 text-sm mt-1">{{ target_user.email|default:"No email provided" }}</p>
+                </div>
+            </div>
+            
+            <button @click="saveUser" :disabled="isSubmitting || isSuperuser" class="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-bold shadow-sm hover:bg-indigo-700 hover:shadow disabled:opacity-50 transition-all flex items-center gap-2">
+                <i class="fa-solid fa-check" x-show="!isSubmitting"></i>
+                <i class="fa-solid fa-circle-notch fa-spin" x-show="isSubmitting" x-cloak></i>
+                <span x-text="isSubmitting ? 'Saving...' : 'Save User Settings'"></span>
+            </button>
+        </div>
+
+        <div x-show="errorMessage" x-transition x-cloak class="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <i class="fa-solid fa-triangle-exclamation mr-2"></i> <span x-text="errorMessage"></span>
+        </div>
+
+        {% if target_user.is_superuser %}
+        <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-6 mb-6">
+            <h3 class="text-indigo-800 font-bold flex items-center gap-2"><i class="fa-solid fa-shield-halved"></i> Superuser Override Active</h3>
+            <p class="text-indigo-600 text-sm mt-1">This user is a Django Superuser. They bypass all granular security rules and have absolute access to every app, feature, and site. Role assignments have no effect.</p>
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" :class="isSuperuser ? 'opacity-50 pointer-events-none' : ''">
+            
+            <div class="md:col-span-2 bg-indigo-900 text-white p-6 rounded-2xl shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-black tracking-tight"><i class="fa-solid fa-house-user text-indigo-400 mr-2"></i> Primary Domain</h2>
+                    <p class="text-xs text-indigo-200 mt-1">This determines how the user is categorized in the Access Dashboard.</p>
+                </div>
+                <div class="w-full md:w-64">
+                    <select x-model="selectedPrimaryApp" class="w-full bg-indigo-950 border border-indigo-700 text-white rounded-lg px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-400 outline-none cursor-pointer">
+                        <option value="all">All / System Wide</option>
+                        {% for app in apps %}
+                            <option value="{{ app.id }}">{{ app.display_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+                <h2 class="text-lg font-bold mb-4 border-b border-slate-100 pb-2"><i class="fa-solid fa-cubes text-indigo-500 mr-2"></i> Authorized Apps</h2>
+                <div class="flex flex-col gap-3 flex-grow">
+                    {% for app in apps %}
+                    <label class="flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-500"><i class="{{ app.icon_class }}"></i></div>
+                            <span class="font-bold text-slate-700">{{ app.display_name }}</span>
+                        </div>
+                        <input type="checkbox" value="{{ app.id }}" x-model="selectedApps" class="w-5 h-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+                <h2 class="text-lg font-bold mb-4 border-b border-slate-100 pb-2"><i class="fa-solid fa-id-card-clip text-emerald-500 mr-2"></i> Assign Roles</h2>
+                <p class="text-sm text-slate-500 mb-4">Select one or more roles. Permissions from multiple roles will be combined (stacked).</p>
+                
+                <div class="space-y-2 flex-grow overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                    {% for role in roles %}
+                    <label class="flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                        <span class="font-bold text-slate-700 text-sm">{{ role.name }}</span>
+                        <input type="checkbox" value="{{ role.id }}" x-model="selectedRoles" class="w-5 h-5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500">
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div x-show="hasRecordsAccess" x-transition class="md:col-span-2 bg-white p-6 rounded-2xl border border-blue-200 shadow-sm relative overflow-hidden" x-cloak>
+                <div class="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-bl-full -mr-10 -mt-10 pointer-events-none"></div>
+                
+                <h2 class="text-lg font-bold mb-2 border-b border-slate-100 pb-2 relative z-10"><i class="fa-solid fa-location-dot text-blue-500 mr-2"></i> Records Site Assignment</h2>
+                <p class="text-sm text-slate-500 mb-4 relative z-10">Because this user has access to the <strong>Records</strong> app, you must specify which geographical sites they are allowed to view data for.</p>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 relative z-10">
+                    {% for site in sites %}
+                    <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                        <input type="checkbox" value="{{ site.id }}" x-model="selectedSites" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                        <span class="font-bold text-slate-700 text-sm">{{ site.name }}</span>
+                    </label>
+                    {% empty %}
+                    <div class="col-span-full text-sm text-slate-400 italic">No sites defined in the Records app yet.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div x-show="hasRecordsAccess" x-transition class="md:col-span-2 bg-white p-6 rounded-2xl border border-emerald-200 shadow-sm relative overflow-hidden" x-cloak>
+                <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-bl-full -mr-10 -mt-10 pointer-events-none"></div>
+                
+                <h2 class="text-lg font-bold mb-2 border-b border-slate-100 pb-2 relative z-10"><i class="fa-solid fa-pen-nib text-emerald-500 mr-2"></i> Signature Authority (Departments)</h2>
+                <p class="text-sm text-slate-500 mb-4 relative z-10">Select which departments this user is legally authorized to <strong>Sign and Approve</strong> records for. (They can still view all departments in their assigned Sites).</p>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 relative z-10">
+                    {% for dept in departments %}
+                    <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                        <input type="checkbox" value="{{ dept.id }}" x-model="selectedDepartments" class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-700 text-sm">{{ dept.name }}</span>
+                            <span class="text-[9px] text-slate-400 font-black uppercase tracking-widest">{{ dept.site.name }}</span>
+                        </div>
+                    </label>
+                    {% empty %}
+                    <div class="col-span-full text-sm text-slate-400 italic">No departments defined yet.</div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        const csrfToken = '{{ csrf_token }}';
+        const rawApps = '{{ assigned_apps_json|safe }}' || '[]';
+        const rawSites = '{{ assigned_sites_json|safe }}' || '[]';
+        const rawDepartments = '{{ assigned_departments_json|safe }}' || '[]'; 
+        const recordsAppId = '{{ records_app_id }}';
+        
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('userManager', () => ({
+                isSuperuser: {{ target_user.is_superuser|yesno:"true,false" }},
+                
+                selectedPrimaryApp: '{{ profile.primary_app_id|default:"all" }}',
+                
+                selectedRoles: [
+                    {% for r in profile.roles.all %}"{{ r.id }}",{% endfor %}
+                ],
+                
+                selectedApps: JSON.parse(rawApps).map(String),
+                selectedSites: JSON.parse(rawSites).map(String),
+                selectedDepartments: JSON.parse(rawDepartments).map(String),
+                
+                isSubmitting: false,
+                errorMessage: '',
+
+                get hasRecordsAccess() {
+                    return this.selectedApps.includes(recordsAppId);
+                },
+
+                async saveUser() {
+                    this.isSubmitting = true;
+                    this.errorMessage = '';
+                    
+                    try {
+                        const response = await fetch("{% url 'api_save_user_access' target_user.id %}", {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken
+                            },
+                            body: JSON.stringify({
+                                primary_app: this.selectedPrimaryApp,
+                                roles: this.selectedRoles.map(Number),
+                                apps: this.selectedApps.map(Number),
+                                sites: this.selectedSites.map(Number),
+                                departments: this.selectedDepartments.map(Number)
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            window.location.href = "{% url 'manage_access_dashboard' %}";
+                        } else {
+                            this.errorMessage = data.message || "Failed to save.";
+                        }
+                    } catch (err) {
+                        this.errorMessage = "A network error occurred.";
+                    } finally {
+                        this.isSubmitting = false;
+                    }
+                }
+            }));
+        });
+    </script>
+</body>
+</html>

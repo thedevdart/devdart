@@ -1,0 +1,163 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block content %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<div id="env-data" class="hidden"
+     data-center-id="{{ center.id }}"
+     data-report-base-url="{% url 'report_detail' 999999 %}">
+</div>
+
+<div class="max-w-[100rem] mx-auto py-4 font-sans relative flex flex-col h-[calc(100vh-2rem)] min-h-[700px]">
+    
+    <div class="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-6 shrink-0">
+        <div>
+            <a href="{% url 'centers_list' %}" class="text-slate-500 dark:text-slate-400 hover:text-primary text-[10px] font-black uppercase tracking-widest mb-3 inline-flex items-center gap-2 transition-colors w-max">
+                <i class="fa-solid fa-arrow-left"></i> Back to All Centers
+            </a>
+            
+            <h1 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tighter flex items-center gap-3 uppercase font-heading">
+                <i class="fa-solid fa-building text-primary"></i>
+                {{ center.name }}
+            </h1>
+            
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-2 font-bold uppercase tracking-widest">
+                {% if center.location %}
+                    <i class="fa-solid fa-location-dot text-slate-400"></i> {{ center.location }} 
+                    <span class="text-slate-300 dark:text-slate-700 mx-1">•</span>
+                {% endif %}
+                <i class="fa-regular fa-folder-open text-slate-400"></i> {{ history|length }} Total Reports
+            </p>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <div class="relative flex items-center group bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md px-4 py-2.5 shadow-sm hover:border-primary transition-colors cursor-pointer" onclick="document.getElementById('searchDate')._flatpickr.open()">
+                <i class="fa-solid fa-calendar-day text-primary mr-2 group-hover:scale-110 transition-transform"></i>
+                <input type="text" id="searchDate" placeholder="JUMP TO DATE..." class="bg-transparent border-none text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 w-32 outline-none focus:ring-0 cursor-pointer placeholder-slate-400 p-0">
+            </div>
+
+            <a href="?sort={% if next_sort == 'asc' %}asc{% else %}desc{% endif %}" 
+               class="flex-1 md:flex-none inline-flex justify-center items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-black py-2.5 px-5 rounded-md hover:border-primary hover:text-primary shadow-sm transition-all text-[11px] uppercase tracking-widest active:scale-95">
+                <i class="fa-solid {{ sort_icon }}"></i> 
+                Sort by Date
+            </a>
+        </div>
+    </div>
+
+    <div class="flex-1 min-h-0 flex flex-col relative pb-4">
+        
+        <div class="bg-white dark:bg-slate-900 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col h-fit max-h-full w-full overflow-hidden transition-colors duration-300">
+            
+            <div class="overflow-auto custom-scrollbar w-full">
+                <table class="w-full text-left border-collapse min-w-[800px]">
+                    
+                    <thead class="bg-black text-white uppercase text-[10px] font-black tracking-widest sticky top-0 z-10 shadow-md">
+                        <tr>
+                            <th class="px-6 py-4 w-1/4">Report Date</th>
+                            <th class="px-6 py-4 text-right"><i class="fa-solid fa-box-open mr-2 text-primary opacity-80"></i>Raw Materials</th>
+                            <th class="px-6 py-4 text-right"><i class="fa-solid fa-boxes-stacked mr-2 text-accent opacity-80"></i>Finished Goods</th>
+                            <th class="px-6 py-4 text-center">Source Scan</th>
+                            <th class="px-6 py-4 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50 bg-white dark:bg-slate-900 text-[12px]">
+                        {% for item in history %}
+                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                            
+                            <td class="px-6 py-4">
+                                <div class="flex flex-col gap-1.5 items-start">
+                                    <a href="{% url 'report_detail' item.sheet.id %}" class="font-black text-slate-900 dark:text-white hover:text-primary dark:hover:text-primary transition-colors flex items-center gap-2 group/link uppercase tracking-wider">
+                                        {{ item.sheet.date|date:"d M Y" }}
+                                        <i class="fa-solid fa-arrow-right text-[10px] opacity-0 -translate-x-2 group-hover/link:opacity-100 group-hover/link:translate-x-0 transition-all text-primary"></i>
+                                    </a>
+                                    
+                                    {% if item.sheet.is_carried_over %}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 text-[9px] font-black rounded-sm uppercase tracking-widest border border-slate-200 dark:border-slate-700 mt-1">
+                                        <i class="fa-solid fa-copy mr-1 text-slate-400"></i> From {{ item.sheet.copied_from_date|date:"d M Y" }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            
+                            <td class="px-6 py-4 text-right font-mono font-bold text-slate-700 dark:text-slate-300">
+                                {{ item.raw_total|floatformat:0 }}
+                            </td>
+                            
+                            <td class="px-6 py-4 text-right font-mono font-bold text-slate-700 dark:text-slate-300">
+                                {{ item.finished_total|floatformat:0 }}
+                            </td>
+                            
+                            <td class="px-6 py-4 text-center">
+                                {% if item.sheet.image %}
+                                    <button onclick="window.HistoryApp.openDocModal('{{ item.sheet.image.url }}')" class="w-8 h-8 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-brand hover:text-accent dark:hover:bg-brand dark:hover:text-accent transition-colors flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95 mx-auto" title="Preview Document">
+                                        <i class="fa-regular fa-image text-[10px]"></i>
+                                    </button>
+                                {% else %}
+                                    <span class="text-slate-300 dark:text-slate-600 text-xs font-mono font-bold">-</span>
+                                {% endif %}
+                            </td>
+
+                            <td class="px-6 py-4">
+                                <div class="flex items-center justify-center opacity-100 md:opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                    <a href="{% url 'download_sheet_csv' item.sheet.id %}" class="text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-accent hover:text-brand dark:hover:bg-accent dark:hover:text-brand px-4 py-2 rounded-md text-[10px] uppercase tracking-widest font-black transition-colors flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95 w-max">
+                                        <i class="fa-solid fa-file-excel"></i> Export
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="py-20 text-center text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-950/50">
+                                <div class="w-16 h-16 bg-white dark:bg-slate-900 rounded-md flex items-center justify-center mx-auto mb-4 border border-slate-200 dark:border-slate-800 shadow-sm">
+                                    <i class="fa-regular fa-folder-open text-2xl text-slate-300 dark:text-slate-600"></i>
+                                </div>
+                                <p class="font-black text-[11px] uppercase tracking-widest text-slate-500 dark:text-slate-400">No reports found</p>
+                                <p class="text-xs font-bold mt-1.5 tracking-wide">Upload a scan from the dashboard to create the first record</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="docModal" class="fixed inset-0 bg-slate-900/90 dark:bg-[#0a0f18]/90 backdrop-blur-sm hidden flex items-center justify-center z-[150] p-4 transition-opacity duration-200 opacity-0">
+    <div class="relative w-full max-w-5xl h-[90vh] bg-slate-50 dark:bg-slate-900 rounded-md overflow-hidden flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 transform scale-95 transition-transform duration-200" id="modalWindow">
+        
+        <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md text-slate-800 dark:text-white px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center flex-shrink-0 z-20 shadow-sm absolute top-0 w-full">
+            <span class="font-black text-[11px] uppercase tracking-widest flex items-center gap-2">
+                <i class="fa-regular fa-file-lines text-primary"></i> Document Preview
+            </span>
+            <button onclick="window.HistoryApp.hideModal()" class="w-8 h-8 rounded-sm bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-red-500 hover:text-white dark:hover:bg-red-500 dark:hover:text-white transition-colors flex items-center justify-center shadow-sm">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <button id="modalZoomBtn" onclick="window.HistoryApp.toggleModalZoom()" class="absolute top-20 right-6 z-30 bg-white dark:bg-slate-800 text-slate-500 px-3 py-3 rounded-md shadow-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center transition-all hover:border-accent hover:text-accent cursor-pointer">
+            <i class="fa-solid fa-magnifying-glass text-lg"></i>
+        </button>
+
+        <div id="modalContent" class="flex-1 flex flex-col items-center overflow-y-auto overflow-x-hidden p-6 pt-24 custom-scrollbar relative w-full h-full bg-slate-100/50 dark:bg-slate-950/50">
+            </div>
+    </div>
+</div>
+
+<div id="noReportModal" class="fixed inset-0 z-[200] hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-sm transition-opacity duration-200 opacity-0">
+    <div class="bg-white dark:bg-slate-900 rounded-md shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-sm p-8 text-center transform scale-95 transition-transform duration-200 opacity-0">
+        <div class="w-14 h-14 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100 dark:border-red-500/20">
+            <i class="fa-regular fa-calendar-xmark text-xl"></i>
+        </div>
+        <h3 class="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter font-heading">Not Found</h3>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-8 font-bold uppercase tracking-widest leading-relaxed" id="noReportMessage"></p>
+        <button onclick="window.HistoryApp.closeNoReportModal()" class="w-full px-4 py-3 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-black text-[10px] uppercase tracking-widest transition-colors shadow-sm active:scale-95">Dismiss</button>
+    </div>
+</div>
+
+<script src="{% static 'inventory/js/center_history.js' %}?v=1.1"></script>
+{% endblock %}

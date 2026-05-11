@@ -1,0 +1,176 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block content %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+
+<script id="initial-items" type="application/json">
+    {{ items_json|safe }}
+</script>
+
+<div id="env-data" 
+     data-csrf="{{ csrf_token }}" 
+     data-save-url="{% url 'api_save_center_template' center.id %}"
+     class="hidden">
+</div>
+
+<div class="max-w-[90rem] mx-auto py-4 font-sans" x-data="templateBuilder()">
+    
+    <div id="toast" class="fixed bottom-5 right-5 z-50 hidden transition-all duration-300 transform translate-y-full opacity-0">
+        <div class="bg-slate-900 dark:bg-slate-800 text-white px-5 py-4 rounded-md shadow-2xl flex items-start gap-4 min-w-[320px] max-w-sm border-l-4" :class="toastType === 'success' ? 'border-accent' : 'border-red-500'">
+            <i class="fa-solid mt-0.5 text-lg" :class="toastType === 'success' ? 'fa-check text-accent' : 'fa-xmark text-red-400'"></i>
+            <div class="flex-1">
+                <h4 class="font-bold text-sm text-slate-50 tracking-wide uppercase" x-text="toastTitle"></h4>
+                <p class="text-xs text-slate-300 mt-1 font-medium" x-text="toastMsg"></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-6">
+        <div>
+            <a href="{% url 'centers_list' %}" class="text-slate-500 dark:text-slate-400 hover:text-primary text-xs font-bold mb-3 inline-flex items-center gap-2 transition-colors uppercase tracking-wider">
+                <i class="fa-solid fa-arrow-left"></i> Back to Centers
+            </a>
+            <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-widest flex items-center gap-3 uppercase">
+                <span class="bg-primary/10 text-primary p-2 rounded-md transition-colors"><i class="fa-solid fa-list-check text-lg"></i></span>
+                {{ center.name }} Template
+            </h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium">Establish the exact ordered list of items for this location.</p>
+        </div>
+        
+        <button @click="saveTemplate()" :disabled="isSaving" class="text-sm bg-accent hover:bg-accent/90 text-brand px-6 py-2.5 rounded-md font-bold transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50">
+            <i class="fa-solid fa-circle-notch fa-spin" x-show="isSaving" x-cloak></i>
+            <i class="fa-solid fa-floppy-disk" x-show="!isSaving"></i> 
+            <span x-text="isSaving ? 'Saving...' : 'Save Master Template'"></span>
+        </button>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[75vh]">
+        
+        <div class="lg:col-span-5 flex flex-col h-full bg-white dark:bg-[#0a0f18] rounded-md border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex-shrink-0">
+            <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+                <h3 class="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-widest flex items-center gap-2">
+                    <i class="fa-regular fa-file-lines text-slate-400"></i> Blank Sheet Setup
+                </h3>
+                
+                <div class="relative group cursor-pointer">
+                    <input type="file" id="fileInput" accept="image/*,application/pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" @change="handleFileSelect"/>
+                    <button class="text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded-md font-bold transition-colors flex items-center gap-1.5 uppercase tracking-wide">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Upload Blank
+                    </button>
+                </div>
+            </div>
+            
+            <div id="previewContainer" class="flex-1 bg-slate-50 dark:bg-[#05080f] relative flex flex-col items-center justify-center overflow-hidden p-4">
+                <div id="placeholder-content" class="text-center text-slate-400 dark:text-slate-600 flex flex-col items-center relative group w-full h-full justify-center">
+                    <input type="file" id="fileInputLarge" accept="image/*,application/pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" @change="handleFileSelect"/>
+                    <div class="w-16 h-16 mb-4 rounded-md bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-800 flex items-center justify-center text-2xl group-hover:scale-105 group-hover:border-primary group-hover:text-primary transition-all duration-200">
+                        <i class="fa-solid fa-file-circle-plus text-slate-300 dark:text-slate-700 group-hover:text-primary transition-colors"></i>
+                    </div>
+                    <p class="text-sm font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest">Upload Blank Template</p>
+                    <p class="text-xs mt-1 font-medium">To auto-extract the ordered list</p>
+                </div>
+                <img id="previewImg" class="hidden max-w-full max-h-full object-contain rounded-md shadow-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                <div id="pdfCanvasContainer" class="hidden w-full h-full flex-col items-center overflow-y-auto gap-4 custom-scrollbar min-h-0 pb-10"></div>
+            </div>
+
+            <div class="p-4 bg-white dark:bg-[#0a0f18] border-t border-slate-100 dark:border-slate-800 shrink-0">
+                <button @click="extractTemplate()" :disabled="isExtracting || !hasFile" class="w-full flex items-center justify-center gap-2 bg-brand hover:bg-brand/90 text-white text-xs uppercase tracking-widest font-black py-3 px-4 rounded-md shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fa-solid fa-wand-magic-sparkles text-primary" x-show="!isExtracting"></i>
+                    <i class="fa-solid fa-circle-notch fa-spin text-primary" x-show="isExtracting" x-cloak></i>
+                    <span x-text="isExtracting ? 'Scanning Template...' : 'Extract Ordered List'"></span>
+                </button>
+            </div>
+        </div>
+
+        <div class="lg:col-span-7 flex flex-col h-full bg-white dark:bg-[#0a0f18] rounded-md border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex-shrink-0">
+            
+            <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
+                <h3 class="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-widest flex items-center gap-2 shrink-0">
+                    <i class="fa-solid fa-list-ol text-slate-400"></i> Master Order List (<span class="text-primary" x-text="items.length"></span>)
+                </h3>
+                
+                <div class="flex items-center gap-2">
+                    <button @click="addTop()" class="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-md font-bold uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrow-up"></i> Top
+                    </button>
+                    <button @click="addBottom()" class="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-md font-bold uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrow-down"></i> Bottom
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/30 dark:bg-[#05080f]">
+                <table class="w-full text-sm text-left border-collapse">
+                    <thead class="bg-slate-100 dark:bg-slate-900 text-[9px] uppercase tracking-widest font-black sticky top-0 text-slate-500 dark:text-slate-400 z-10 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800">
+                        <tr>
+                            <th class="px-2 py-3 w-16 text-center border-r border-slate-200 dark:border-slate-800">Move</th>
+                            <th class="px-4 py-3 w-1/3 border-r border-slate-200 dark:border-slate-800">
+                                <div class="flex items-center gap-2">
+                                    <span>Category</span>
+                                    <select @change="applyBulkCategory($event.target.value)" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[9px] rounded-sm px-1 font-bold focus:border-primary outline-none cursor-pointer">
+                                        <option value="" selected disabled>⋮ Set All</option>
+                                        <option value="Raw Material">Raw Material</option>
+                                        <option value="Finished Goods">Finished Goods</option>
+                                    </select>
+                                </div>
+                            </th>
+                            <th class="px-4 py-3 w-7/12 border-r border-slate-200 dark:border-slate-800">Exact Item Name</th>
+                            <th class="px-4 py-3 text-center w-12"></th>
+                        </tr>
+                    </thead>
+                    
+                    <tbody class="divide-y divide-slate-200 dark:divide-slate-800 text-slate-800 dark:text-slate-200 bg-white dark:bg-[#0a0f18]">
+                        <template x-for="(item, index) in items" :key="item.id || item.temp_id">
+                            <tr class="group hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                                
+                                <td class="px-2 py-2 text-center border-r border-slate-200 dark:border-slate-800">
+                                    <div class="flex flex-col items-center justify-center gap-1">
+                                        <button @click="moveUp(index)" :disabled="index === 0" class="text-slate-300 hover:text-primary dark:text-slate-600 dark:hover:text-primary transition-colors disabled:opacity-30 disabled:hover:text-slate-300">
+                                            <i class="fa-solid fa-chevron-up text-[10px]"></i>
+                                        </button>
+                                        <button @click="moveDown(index)" :disabled="index === items.length - 1" class="text-slate-300 hover:text-primary dark:text-slate-600 dark:hover:text-primary transition-colors disabled:opacity-30 disabled:hover:text-slate-300">
+                                            <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                
+                                <td class="px-4 py-2 border-r border-slate-200 dark:border-slate-800">
+                                    <select x-model="items[index].category" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 outline-none rounded-sm p-1.5 cursor-pointer focus:border-primary transition-colors">
+                                        <option value="Raw Material">Raw Material</option>
+                                        <option value="Finished Goods">Finished Goods</option>
+                                    </select>
+                                </td>
+
+                                <td class="px-4 py-2 border-r border-slate-200 dark:border-slate-800">
+                                    <input type="text" x-model="items[index].name" class="w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-primary focus:bg-white dark:focus:bg-slate-950 rounded-sm px-2 py-1.5 text-[12px] font-black uppercase tracking-wide outline-none transition-all">
+                                </td>
+                                
+                                <td class="px-4 py-2 text-center">
+                                    <button @click="removeItem(index)" class="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-500/10 opacity-0 group-hover:opacity-100">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+                
+                <div x-show="items.length === 0" class="p-12 text-center text-slate-400 dark:text-slate-600 flex flex-col items-center">
+                    <i class="fa-solid fa-list-ol text-3xl mb-3 opacity-50"></i>
+                    <p class="font-bold text-sm uppercase tracking-widest">No items in template.</p>
+                    <p class="text-xs mt-1 font-medium">Upload a blank sheet to auto-fill, or manually add rows.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'inventory/js/center_template_builder.js' %}?v=1.0"></script>
+{% endblock %}

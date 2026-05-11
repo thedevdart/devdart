@@ -1,0 +1,323 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block content %}
+<script src="//unpkg.com/alpinejs" defer></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<link rel="stylesheet" href="{% static 'inventory/css/daily_report.css' %}?v=1.0">
+
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+
+<div id="env-data" class="hidden"
+     data-date="{{ date }}"
+     data-total-columns="{{ centers|length }}"
+     data-csrf="{{ csrf_token }}"
+     data-url-template="{% url 'daily_report_detail' '9999-99-99' %}">
+</div>
+
+<script id="center-cats-data" type="application/json">
+    [{% for c in centers %}"{{ c.obj.category|default:'NONE' }}"{% if not forloop.last %}, {% endif %}{% endfor %}]
+</script>
+
+<div class="max-w-[98vw] mx-auto font-sans relative min-h-screen flex flex-col" 
+     x-data="{ showRM: true, showFG: true, search: '', catFilter: 'ALL', exportModal: false }"
+     x-init="
+        $watch('search', val => { if(val.length > 0) { showRM = true; showFG = true; } });
+        $watch('catFilter', val => window.updateTotals(val));
+     " id="main-alpine-wrapper">
+<div class="flex flex-col xl:flex-row justify-between items-start xl:items-end mb-6 gap-5 shrink-0">
+        <div>
+            <a href="{% url 'daily_reports_list' %}" class="text-slate-500 dark:text-slate-400 hover:text-primary text-[10px] font-black uppercase tracking-widest mb-3 inline-flex items-center gap-2 transition-colors">
+                <i class="fa-solid fa-arrow-left"></i> Back to Reports
+            </a>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-4 mt-1">
+              <h1 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase flex items-center gap-3 font-heading">
+                    <i class="fa-solid fa-table-list text-primary"></i>
+                    Stock Report: <span class="text-primary ml-1" id="currentDateDisplay">{{ date }}</span>
+                </h1>
+                
+                <div class="relative flex items-center group bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md px-4 py-2.5 shadow-sm hover:border-primary transition-colors cursor-pointer w-max" onclick="document.getElementById('searchDateInput')._flatpickr.open()">
+                    <i class="fa-solid fa-calendar-day text-primary mr-3 group-hover:scale-110 transition-transform"></i>
+                    <input type="text" id="searchDateInput" placeholder="JUMP TO DATE..." class="bg-transparent border-none outline-none text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 cursor-pointer w-32 p-0 focus:ring-0 placeholder-slate-400">
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex flex-col sm:flex-row flex-wrap gap-3 w-full xl:w-auto mt-4 xl:mt-0">
+            <button onclick="pushToNexus()" id="nexusBtn" class="flex-1 sm:flex-none justify-center bg-brand hover:bg-brand/90 text-accent border border-accent/30 px-6 py-2.5 rounded-md text-[11px] font-black uppercase tracking-widest shadow-sm hover:border-accent transition-all duration-300 flex items-center gap-2 active:scale-95 h-[42px]">
+                <i class="fa-solid fa-cloud-arrow-up"></i> Push to Nexus
+            </button>
+            <button @click="exportModal = true" class="flex-1 sm:flex-none justify-center bg-accent hover:bg-accent/90 text-brand px-6 py-2.5 rounded-md text-[11px] font-black uppercase tracking-widest shadow-sm flex items-center gap-2 transition-all border border-transparent active:scale-95 h-[42px]">
+                <i class="fa-solid fa-file-excel"></i> Export Excel
+            </button>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-900 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col h-fit max-h-full w-full overflow-hidden transition-colors duration-300">        
+        <div class="px-4 py-3 bg-slate-50/80 dark:bg-[#05080f] border-b border-slate-200 dark:border-slate-800 flex flex-col xl:flex-row justify-between items-center gap-4 flex-shrink-0">
+            
+            <div class="flex items-center gap-3 w-full xl:w-auto">
+                <div class="relative w-full xl:w-64">
+                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" x-model="search" placeholder="Search items..." class="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none dark:text-white transition-colors shadow-sm font-bold">
+                </div>
+                <select x-model="catFilter" class="py-2 px-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none dark:text-white font-bold text-slate-700 cursor-pointer uppercase tracking-wider shrink-0">
+                    <option value="ALL">All Centers</option>
+                    <option value="HD">HD Only</option>
+                    <option value="LD">LD Only</option>
+                </select>
+            </div>
+
+            <div class="flex bg-slate-200 dark:bg-slate-900 p-1 rounded-md w-full xl:w-auto overflow-x-auto no-scrollbar snap-x">
+                <button onclick="switchReportType('opening')" id="btn-opening" class="report-tab px-4 py-2 text-[11px] font-bold rounded-sm text-slate-500 hover:text-slate-800 dark:hover:text-white transition-all flex-none md:flex-1 whitespace-nowrap uppercase tracking-wider border-b-2 border-transparent snap-start">Opening</button>
+                <button onclick="switchReportType('inward')" id="btn-inward" class="report-tab px-4 py-2 text-[11px] font-bold rounded-sm text-slate-500 hover:text-slate-800 dark:hover:text-white transition-all flex-none md:flex-1 whitespace-nowrap uppercase tracking-wider border-b-2 border-transparent snap-start">Inward (RM)</button>
+                <button onclick="switchReportType('production')" id="btn-production" class="report-tab px-4 py-2 text-[11px] font-bold rounded-sm text-slate-500 hover:text-slate-800 dark:hover:text-white transition-all flex-none md:flex-1 whitespace-nowrap uppercase tracking-wider border-b-2 border-transparent snap-start">Production (FG)</button>
+                <button onclick="switchReportType('dispatch')" id="btn-dispatch" class="report-tab px-4 py-2 text-[11px] font-bold rounded-sm text-slate-500 hover:text-slate-800 dark:hover:text-white transition-all flex-none md:flex-1 whitespace-nowrap uppercase tracking-wider border-b-2 border-transparent snap-start">Dispatch</button>
+                <button onclick="switchReportType('closing')" id="btn-closing" class="report-tab px-4 py-2 text-[11px] font-black rounded-sm bg-white dark:bg-[#0a0f18] text-primary border-b-2 border-primary shadow-sm flex-none md:flex-1 whitespace-nowrap transition-all uppercase tracking-wider snap-start">Closing</button>
+            </div>
+
+            <div class="hidden md:flex items-center gap-4 w-full xl:w-auto justify-end">
+                <button @click="showRM = true; showFG = true" class="text-[10px] font-black text-primary hover:text-primary/80 transition-colors uppercase tracking-widest">Expand All</button>
+                <div class="w-px h-4 bg-slate-300 dark:bg-slate-700"></div>
+                <button @click="showRM = false; showFG = false" class="text-[10px] font-black text-slate-500 hover:text-slate-300 transition-colors uppercase tracking-widest">Collapse All</button>
+            </div>
+        </div>
+
+        <div class="overflow-auto custom-scrollbar flex-1 relative bg-white dark:bg-[#0a0f18]">
+            <table class="text-sm text-left border-collapse min-w-full" :class="'table-filter-' + catFilter">
+                <thead class="text-[10px] uppercase tracking-widest text-slate-500 font-black border-b-2 border-slate-300 dark:border-slate-800 sticky top-0 z-40 bg-slate-50 dark:bg-slate-900 shadow-sm">
+                    <tr>
+                        <th class="hidden md:table-cell px-2 py-4 border-r border-slate-200 dark:border-slate-800 w-[50px] min-w-[50px] text-center sticky left-0 bg-slate-50 dark:bg-slate-900 z-50">Sr.</th>
+                        
+                        <th class="px-3 md:px-4 py-4 border-r border-slate-200 dark:border-slate-800 min-w-[140px] max-w-[140px] md:min-w-[250px] md:max-w-none sticky left-0 md:left-[50px] bg-slate-50 dark:bg-slate-900 z-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] dark:shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">Particulars</th>
+                        
+                        <th class="px-4 py-4 border-r border-slate-200 dark:border-slate-800 bg-primary/10 text-center min-w-[100px] text-primary">
+                            TOTAL <span id="col-header-type" class="block text-[8px] opacity-70">(CLOSING)</span>
+                        </th>
+
+                        {% for center in centers %}
+                            <th class="col-cat-{{ center.obj.category|default:'NONE' }} px-4 py-3 border-r border-slate-200 dark:border-slate-800 text-center min-w-[100px] md:min-w-[130px] bg-slate-50 dark:bg-slate-900 transition-all">
+                                <div class="flex flex-col items-center">
+                                    {% if center.sheet_id %}
+                                        <a href="{% url 'report_detail' center.sheet_id %}" class="text-[11px] md:text-[12px] font-black text-slate-800 dark:text-slate-200 hover:text-primary dark:hover:text-primary flex items-center gap-1 transition-colors" title="Go to Report">
+                                            {{ center.obj.name|truncatechars:15|upper }} <i class="hidden md:inline-block fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                                        </a>
+                                    {% else %}
+                                        <span class="text-[11px] md:text-[12px] font-black text-slate-400 dark:text-slate-600 cursor-not-allowed" title="No report uploaded">{{ center.obj.name|truncatechars:15|upper }}</span>
+                                    {% endif %}
+                                    
+                                    <div class="flex items-center gap-1 mt-1 mb-1">
+                                        <span class="text-[8px] md:text-[9px] text-slate-400 font-bold uppercase tracking-widest"><i class="hidden md:inline-block fa-solid fa-location-dot mr-1"></i>{{ center.obj.state|truncatechars:10 }}</span>
+                                        {% if center.obj.category %}
+                                            <span class="text-[8px] px-1 py-0.5 rounded-sm font-black border border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400">
+                                                {{ center.obj.category }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if center.is_carried_over %}
+                                        <span class="hidden md:block px-1.5 py-0.5 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 text-[8px] font-black rounded-sm uppercase tracking-widest border border-slate-200 dark:border-slate-700 mt-1">
+                                            <i class="fa-solid fa-copy mr-1"></i> {{ center.copied_from_date|date:"d M" }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-800 text-[12px] md:text-[13px]">
+                    <tr id="summary-rm-row" class="summary-row font-black bg-primary/5 text-primary">
+                        <td class="hidden md:table-cell sticky left-0 bg-[#fff5f2] dark:bg-[#1a0f0a] border-r border-slate-200 dark:border-slate-800 text-center py-3 z-30">A</td>
+                        <td class="px-3 md:px-4 py-3 border-r border-slate-200 dark:border-slate-800 sticky left-0 md:left-[50px] bg-[#fff5f2] dark:bg-[#1a0f0a] z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] uppercase tracking-widest text-[10px] md:text-xs">
+                            <i class="fa-solid fa-box-open mr-1 md:mr-2"></i>Raw Material
+                        </td>
+                        <td id="grand-rm-total" class="px-4 py-3 text-center bg-primary/10 border-r border-slate-200 dark:border-slate-800 text-base md:text-lg font-mono">0</td>
+                        {% for center in centers %}
+                            <td class="summary-cell rm-summary-col col-cat-{{ center.obj.category|default:'NONE' }} px-4 py-3 border-r border-slate-200 dark:border-slate-800 text-center font-mono transition-all">-</td>
+                        {% endfor %}
+                    </tr>
+
+                    <tr id="summary-fg-row" class="summary-row font-black bg-accent/5 text-accent">
+                        <td class="hidden md:table-cell sticky left-0 bg-[#f7fbf0] dark:bg-[#0a1205] border-r border-slate-200 dark:border-slate-800 text-center py-3 z-30">B</td>
+                        <td class="px-3 md:px-4 py-3 border-r border-slate-200 dark:border-slate-800 sticky left-0 md:left-[50px] bg-[#f7fbf0] dark:bg-[#0a1205] z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] uppercase tracking-widest text-[10px] md:text-xs">
+                            <i class="fa-solid fa-boxes-stacked mr-1 md:mr-2"></i>Finished Goods
+                        </td>
+                        <td id="grand-fg-total" class="px-4 py-3 text-center bg-accent/10 border-r border-slate-200 dark:border-slate-800 text-base md:text-lg font-mono">0</td>
+                        {% for center in centers %}
+                            <td class="summary-cell fg-summary-col col-cat-{{ center.obj.category|default:'NONE' }} px-4 py-3 border-r border-slate-200 dark:border-slate-800 text-center font-mono transition-all">-</td>
+                        {% endfor %}
+                    </tr>
+
+                    <tr id="summary-grand-row" class="summary-row font-black bg-slate-100 dark:bg-slate-900 border-b-4 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200">
+                        <td class="hidden md:table-cell sticky left-0 bg-slate-100 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 py-3 z-30"></td>
+                        <td class="px-3 md:px-4 py-3 border-r border-slate-200 dark:border-slate-800 sticky left-0 md:left-[50px] bg-slate-100 dark:bg-slate-900 z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] uppercase tracking-widest text-[10px] md:text-xs">GRAND TOTAL</td>
+                        <td id="grand-total-total" class="px-4 py-3 text-center bg-slate-200 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-800 text-lg md:text-xl font-mono">0</td>
+                        {% for center in centers %}
+                            <td class="summary-cell grand-summary-col col-cat-{{ center.obj.category|default:'NONE' }} px-4 py-3 border-r border-slate-200 dark:border-slate-800 text-center font-mono transition-all">-</td>
+                        {% endfor %}
+                    </tr>
+                </tbody>
+
+                <tbody x-show="search === '' || showRM" id="rm-group-header">
+                    <tr class="cursor-pointer group hover:bg-slate-800 dark:hover:bg-slate-900 transition-colors" @click="showRM = !showRM">
+                        <td class="hidden md:table-cell sticky left-0 bg-brand z-30 border-b border-brand/80"></td>
+                        <td class="sticky left-0 md:left-[50px] bg-brand z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)] border-b border-brand/80">
+                            <div class="flex justify-between items-center text-white font-black px-3 md:px-4 py-3 uppercase text-[9px] md:text-[10px] tracking-widest">
+                                <span><i class="fa-solid fa-box-open mr-2 text-primary"></i>Detailed Raw Materials</span>
+                                <div class="w-5 h-5 md:w-6 md:h-6 rounded-sm bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                                    <i class="fa-solid fa-chevron-down text-white/50 transition-transform duration-300 text-[10px]" :class="showRM ? 'rotate-180 text-white' : ''"></i>
+                                </div>
+                            </div>
+                        </td>
+                        <td colspan="100%" class="bg-brand border-b border-brand/80"></td>
+                    </tr>
+                </tbody>
+                <tbody x-show="showRM" class="divide-y divide-slate-100 dark:divide-slate-800/50">
+                    {% for row in detailed_rows %}
+                        {% if row.category == 'Raw Material' %}
+                        <tr class="data-row rm-row group hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors" 
+                            data-cat="Raw Material"
+                            x-show="search === '' || '{{ row.item.name|escapejs|lower }}'.includes(search.toLowerCase())">
+                            
+                            <td class="hidden md:table-cell px-2 py-2.5 border-r border-slate-200 dark:border-slate-800 text-center text-slate-400 font-mono text-[10px] sticky left-0 bg-white dark:bg-[#0a0f18] group-hover:bg-slate-50 dark:group-hover:bg-slate-900 border-b z-20">{{ forloop.counter }}</td>
+                            
+                            <td class="px-3 md:px-4 py-2.5 border-r border-slate-200 dark:border-slate-800 font-bold text-slate-700 dark:text-slate-200 sticky left-0 md:left-[50px] bg-white dark:bg-[#0a0f18] group-hover:bg-slate-50 dark:group-hover:bg-slate-900 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-b z-20 uppercase tracking-wide text-[10px] md:text-xs whitespace-normal break-words min-w-[140px] max-w-[140px] md:min-w-[250px] md:max-w-none leading-snug">{{ row.item.name }}</td>
+
+                            <td class="row-total px-4 py-2.5 text-center font-bold bg-primary/5 text-primary border-r border-slate-200 dark:border-slate-800 border-b font-mono text-xs md:text-sm">0</td>
+
+                            {% for col in row.cols %}
+                                <td class="data-cell col-cat-{{ col.center_cat|default:'NONE' }} px-4 py-2.5 border-r border-slate-200 dark:border-slate-800 border-b text-center text-slate-600 dark:text-slate-400 font-mono text-xs md:text-sm transition-all" 
+                                    data-op="{{ col.op|default:0 }}" data-inw="{{ col.inw|default:0 }}" data-disp="{{ col.disp|default:0 }}" data-clo="{{ col.clo|default:0 }}">
+                                    {% if col %}{{ col.clo|floatformat:0 }}{% else %}<span class="text-slate-200 dark:text-slate-800">-</span>{% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+
+                <tbody x-show="search === '' || showFG" id="fg-group-header">
+                    <tr class="cursor-pointer group hover:bg-slate-800 dark:hover:bg-slate-900 transition-colors" @click="showFG = !showFG">
+                        <td class="hidden md:table-cell sticky left-0 bg-brand z-30 border-b border-brand/80"></td>
+                        <td class="sticky left-0 md:left-[50px] bg-brand z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)] border-b border-brand/80">
+                            <div class="flex justify-between items-center text-white font-black px-3 md:px-4 py-3 uppercase text-[9px] md:text-[10px] tracking-widest">
+                                <span><i class="fa-solid fa-boxes-stacked mr-2 text-accent"></i>Detailed Finished Goods</span>
+                                <div class="w-5 h-5 md:w-6 md:h-6 rounded-sm bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                                    <i class="fa-solid fa-chevron-down text-white/50 transition-transform duration-300 text-[10px]" :class="showFG ? 'rotate-180 text-white' : ''"></i>
+                                </div>
+                            </div>
+                        </td>
+                        <td colspan="100%" class="bg-brand border-b border-brand/80"></td>
+                    </tr>
+                </tbody>
+                <tbody x-show="showFG" class="divide-y divide-slate-100 dark:divide-slate-800/50">
+                    {% for row in detailed_rows %}
+                        {% if row.category == 'Finished Goods' %}
+                        <tr class="data-row fg-row group hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+                            data-cat="Finished Goods"
+                            x-show="search === '' || '{{ row.item.name|escapejs|lower }}'.includes(search.toLowerCase())">
+                            
+                            <td class="hidden md:table-cell px-2 py-2.5 border-r border-slate-200 dark:border-slate-800 text-center text-slate-400 font-mono text-[10px] sticky left-0 bg-white dark:bg-[#0a0f18] group-hover:bg-slate-50 dark:group-hover:bg-slate-900 border-b z-20">{{ forloop.counter }}</td>
+                            
+                            <td class="px-3 md:px-4 py-2.5 border-r border-slate-200 dark:border-slate-800 font-bold text-slate-700 dark:text-slate-200 sticky left-0 md:left-[50px] bg-white dark:bg-[#0a0f18] group-hover:bg-slate-50 dark:group-hover:bg-slate-900 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-b z-20 uppercase tracking-wide text-[10px] md:text-xs whitespace-normal break-words min-w-[140px] max-w-[140px] md:min-w-[250px] md:max-w-none leading-snug">{{ row.item.name }}</td>
+
+                            <td class="row-total px-4 py-2.5 text-center font-bold bg-accent/5 text-accent border-r border-slate-200 dark:border-slate-800 border-b font-mono text-xs md:text-sm">0</td>
+
+                            {% for col in row.cols %}
+                                <td class="data-cell col-cat-{{ col.center_cat|default:'NONE' }} px-4 py-2.5 border-r border-slate-200 dark:border-slate-800 border-b text-center text-slate-600 dark:text-slate-400 font-mono text-xs md:text-sm transition-all" 
+                                    data-op="{{ col.op|default:0 }}" data-inw="{{ col.inw|default:0 }}" data-disp="{{ col.disp|default:0 }}" data-clo="{{ col.clo|default:0 }}">
+                                    {% if col %}{{ col.clo|floatformat:0 }}{% else %}<span class="text-slate-200 dark:text-slate-800">-</span>{% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div x-cloak x-show="exportModal" class="fixed inset-0 z-[999] flex items-center justify-center bg-brand/80 backdrop-blur-sm p-4 text-left" x-transition.opacity>
+        <div @click.away="exportModal = false" class="bg-white dark:bg-slate-800 rounded-md shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200 dark:border-slate-700 transform transition-all">
+            <form action="{% url 'download_daily_report' date %}" method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="export_type" id="exportTypeInput" value="closing">
+                
+                <div class="p-6">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 rounded-md bg-accent/10 flex items-center justify-center text-accent border border-accent/20">
+                            <i class="fa-solid fa-file-excel"></i>
+                        </div>
+                        <h3 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-widest">Custom Export</h3>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 font-bold mb-5 uppercase tracking-wider">Exporting <span id="exportTypeLabel" class="text-primary">Closing</span> Report</p>
+                    
+                    <div class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+                        {% for cls in classifications %}
+                            {% if 'collection' in cls.name|lower %}
+                                <label class="flex items-center justify-between p-3 bg-slate-50 dark:bg-[#0a0f18] rounded-sm border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-accent transition-colors">
+                                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest">Collection (All)</span>
+                                    <input type="checkbox" name="sheet_collection" checked class="w-4 h-4 text-accent rounded bg-slate-800 border-slate-600 focus:ring-accent cursor-pointer">
+                                </label>
+                                <label class="flex items-center justify-between p-3 bg-slate-50 dark:bg-[#0a0f18] rounded-sm border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-accent transition-colors ml-6">
+                                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><span class="px-1 py-0.5 border border-slate-600 text-slate-400 rounded-sm text-[9px] uppercase">LD</span> Collection</span>
+                                    <input type="checkbox" name="sheet_ld_collection" checked class="w-4 h-4 text-accent rounded bg-slate-800 border-slate-600 focus:ring-accent cursor-pointer">
+                                </label>
+                                <label class="flex items-center justify-between p-3 bg-slate-50 dark:bg-[#0a0f18] rounded-sm border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-accent transition-colors ml-6 mb-2">
+                                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><span class="px-1 py-0.5 border border-slate-600 text-slate-400 rounded-sm text-[9px] uppercase">HD</span> Collection</span>
+                                    <input type="checkbox" name="sheet_hd_collection" checked class="w-4 h-4 text-accent rounded bg-slate-800 border-slate-600 focus:ring-accent cursor-pointer">
+                                </label>
+                            {% else %}
+                                <label class="flex items-center justify-between p-3 bg-slate-50 dark:bg-[#0a0f18] rounded-sm border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-accent transition-colors">
+                                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest">{{ cls.name }}</span>
+                                    <input type="checkbox" name="sheet_class_{{ cls.id }}" checked class="w-4 h-4 text-accent rounded bg-slate-800 border-slate-600 focus:ring-accent cursor-pointer">
+                                </label>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+
+                    <div class="flex gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-slate-700">
+                        <button type="button" @click="exportModal = false" class="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-md font-bold transition-colors uppercase text-[11px] tracking-wider">Cancel</button>
+                        <button type="submit" @click="setTimeout(() => exportModal = false, 300)" class="flex-1 px-4 py-2.5 bg-accent hover:bg-accent/90 text-brand rounded-md font-black shadow-sm transition-colors flex justify-center items-center gap-2 uppercase text-[11px] tracking-wider">
+                            <i class="fa-solid fa-download"></i> Generate
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="nexus-toast" class="fixed bottom-5 right-5 z-50 hidden transition-all duration-300 transform translate-y-full opacity-0">
+        <div class="bg-brand text-white px-5 py-4 rounded-md shadow-2xl flex items-start gap-4 min-w-[320px] max-w-sm border-l-4 border-primary">
+            <i id="nexus-toast-icon" class="fa-solid fa-circle-notch fa-spin text-lg text-primary mt-0.5"></i>
+            <div class="flex-1">
+                <h4 id="nexus-toast-title" class="font-black text-[11px] text-slate-50 uppercase tracking-widest">Nexus Portal</h4>
+                <p id="nexus-toast-msg" class="text-xs font-medium text-slate-300 mt-1">Connecting to GitHub...</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="{% static 'inventory/js/daily_report_detail.js' %}?v=1.1"></script>
+<script>
+    (function() {
+        const dateEl = document.getElementById('currentDateDisplay');
+        if (dateEl && dateEl.innerText.trim().includes('-')) {
+            const d = new Date(dateEl.innerText);
+            if (!isNaN(d)) {
+                const day = d.getDate();
+                const month = d.toLocaleDateString('en-GB', { month: 'long' });
+                const year = d.getFullYear();
+                // Formats to: 28 April, 2026
+                dateEl.innerText = `${day} ${month}, ${year}`;
+            }
+        }
+    })();
+</script>
+{% endblock %}

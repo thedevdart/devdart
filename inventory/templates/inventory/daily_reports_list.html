@@ -1,0 +1,107 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<div id="env-data" class="hidden"
+     data-url-template="{% url 'daily_report_detail' '9999-99-99' %}">
+</div>
+
+<div class="max-w-[100rem] mx-auto py-4 font-sans relative flex flex-col h-[calc(100vh-2rem)] min-h-[700px]">
+    
+    <div class="mb-6 flex flex-col md:flex-row md:justify-between md:items-end gap-4 shrink-0">
+        <div>
+            <h1 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase flex items-center gap-3 font-heading">
+                <i class="fa-solid fa-calendar-days text-primary"></i>
+                Daily Reports
+            </h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-bold mt-2 uppercase tracking-widest">Access and download consolidated network-wide stock reports by date</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <div class="relative flex items-center group bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md px-4 py-2.5 shadow-sm hover:border-primary transition-colors cursor-pointer" onclick="document.getElementById('searchDateInput')._flatpickr.open()">
+                <i class="fa-solid fa-calendar-day text-primary mr-3 group-hover:scale-110 transition-transform"></i>
+                <input type="text" id="searchDateInput" placeholder="JUMP TO DATE..." class="bg-transparent border-none text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 w-32 outline-none focus:ring-0 cursor-pointer placeholder-slate-400 p-0">
+            </div>
+        </div>
+    </div>
+
+    <div class="flex-1 min-h-0 flex flex-col relative pb-4">
+        
+        <div class="bg-white dark:bg-slate-900 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col h-fit max-h-full w-full overflow-hidden transition-colors duration-300">
+            
+            <div class="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 shrink-0">
+                <div class="relative max-w-md">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" oninput="window.DailyReportsListApp.handleSearch(this.value)" placeholder="SEARCH BY MONTH OR DAY..." class="w-full pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all text-[11px] font-black uppercase tracking-widest shadow-inner placeholder:text-slate-400">
+                </div>
+            </div>
+
+            <div class="overflow-y-auto custom-scrollbar w-full">
+                <table class="w-full text-left border-collapse min-w-[700px]">
+                    
+                    <thead class="bg-black text-white uppercase text-[10px] font-black tracking-widest sticky top-0 z-10 shadow-md">
+                        <tr>
+                            <th class="px-6 py-4 w-3/4">Report Date</th>
+                            <th class="px-6 py-4 w-1/4 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50 bg-white dark:bg-slate-900 text-[12px]">
+                        
+                        {% for d in dates %}
+                        <tr class="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors data-row" data-search="{{ d|date:'l, F j, Y'|lower }}">
+                            
+                            <td class="px-6 py-4">
+                                <a href="{% url 'daily_report_detail' d|date:'Y-m-d' %}" class="flex items-center gap-4 nav-link w-max">
+                                    
+                                    <div class="w-12 h-12 rounded-md bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 flex flex-col items-center justify-center group-hover:border-primary group-hover:text-primary transition-all shadow-sm shrink-0">
+                                        <span class="text-[9px] font-black uppercase tracking-widest leading-none mb-1">{{ d|date:"M" }}</span>
+                                        <span class="text-lg font-black leading-none">{{ d|date:"d" }}</span>
+                                    </div>
+                                    
+                                    <div>
+                                        <span class="font-black text-slate-900 dark:text-white text-base group-hover:text-primary transition-colors flex items-center gap-2 uppercase tracking-wider">
+                                            {{ d|date:"l, F j, Y" }}
+                                            <i class="fa-solid fa-arrow-right text-[10px] opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all"></i>
+                                        </span>
+                                        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mt-1">Consolidated Master Ledger</p>
+                                    </div>
+                                </a>
+                            </td>
+                            
+                            <td class="px-6 py-4 text-center align-middle">
+                                <a href="{% url 'download_daily_report' d|date:'Y-m-d' %}" class="text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-accent hover:text-brand dark:hover:bg-accent dark:hover:text-brand border border-slate-200 dark:border-slate-700 px-4 py-2.5 rounded-md text-[10px] uppercase tracking-widest font-black transition-all flex items-center justify-center gap-2 shadow-sm mx-auto w-max active:scale-95 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100">
+                                    <i class="fa-solid fa-file-excel"></i> Export
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="p-16 text-center text-slate-400 dark:text-slate-600 bg-slate-50/50 dark:bg-slate-950/50">
+                                <i class="fa-regular fa-calendar-xmark text-4xl text-slate-300 dark:text-slate-600 mb-4 opacity-50"></i>
+                                <p class="font-black text-sm uppercase tracking-widest text-slate-500 dark:text-slate-400">No reports generated</p>
+                                <p class="text-[11px] mt-2 font-bold tracking-wide">Upload center scans on the dashboard to start generating daily consolidations</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                        <tr id="no-search-results" style="display: none;">
+                            <td colspan="2" class="p-16 text-center text-slate-400 dark:text-slate-600 bg-slate-50/50 dark:bg-slate-950/50">
+                                <i class="fa-solid fa-magnifying-glass text-4xl text-slate-300 dark:text-slate-600 mb-4 opacity-30"></i>
+                                <p class="font-black text-sm uppercase tracking-widest text-slate-500 dark:text-slate-400">No matching dates found</p>
+                                <p class="text-[11px] mt-2 font-bold tracking-wide">Try a different search term or use the calendar jump</p>
+                            </td>
+                        </tr>
+
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'inventory/js/daily_reports_list.js' %}?v=1.1"></script>
+{% endblock %}
