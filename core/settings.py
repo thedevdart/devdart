@@ -11,7 +11,7 @@ load_dotenv()
 
 # Prints emails to your terminal instead of actually sending them
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend' 
-DEFAULT_FROM_EMAIL = 'noreply@nexus.com'
+DEFAULT_FROM_EMAIL = 'noreply@lucro.co.in'
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -129,5 +129,5 @@ X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 # Auth Redirects
 LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = '/inventory/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
