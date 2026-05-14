@@ -19,7 +19,7 @@ urlpatterns = [
     
     # 3. Your existing inventory app
     path('inventory/', include('inventory.urls')),
-    path('', RedirectView.as_view(url='/inventory/', permanent=True)),
+    path('', RedirectView.as_view(url='/accounts/login/', permanent=False)),
 
     # 4. Future apps
     path('manpower/', include('manpower.urls')),
