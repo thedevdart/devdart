@@ -191,12 +191,12 @@ class CenterUploadToken(models.Model):
         import secrets
         from django.utils import timezone
         new_token = secrets.token_urlsafe(32)
-        obj, created = cls.objects.update_or_create(
+        obj, _created = cls.objects.update_or_create(
             center=center,
             defaults={
                 'token': new_token,
                 'is_active': True,
-                'rotated_at': None if created else timezone.now(),
+                'rotated_at': timezone.now(),
             },
         )
         return obj
