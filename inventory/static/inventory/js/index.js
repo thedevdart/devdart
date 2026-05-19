@@ -99,19 +99,7 @@ document.addEventListener('keydown', function(e) {
 });
 // --- END UNDO / REDO ENGINE ---
 
-const apiKeys = [
-    "REDACTED",
-    "REDACTED",
-    "REDACTED",
-    "REDACTED",
-    "REDACTED",
-    "REDACTED",
-    "REDACTED",
-    "REDACTED",
-    "REDACTED"
-];
-let currentKeyIndex = 0;
-
+// API keys moved to backend (see inventory/utils.py and GEMINI_API_KEY env var)
 function debounce(func, wait) {
     let timeout;
     return function(...args) {
@@ -1386,48 +1374,19 @@ async function runAnalysis() {
         Category,Item Name,Opening,Inward,Dispatch,Closing
     `;
 
-    let success = false; 
-    let attempts = 0;
     let extractedText = "";
 
     try {
-        while (!success && attempts < apiKeys.length) {
-            const currentKey = apiKeys[currentKeyIndex];
-            const maskedKey = currentKey.substring(0, 10) + "...";
-            console.log(`[API SYSTEM] Attempt ${attempts + 1} of ${apiKeys.length} using Key: ${maskedKey}`);
-
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${currentKey}`, {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inline_data: { mime_type: currentMime, data: currentBase64 } }] }] })
-                });
-
-                // STRICT HTTP CHECK
-                if (!response.ok) {
-                    throw new Error(`HTTP Error ${response.status}: API limit likely hit.`);
-                }
-
-                const data = await response.json();
-                if (data.error) throw new Error(data.error.message);
-
-                extractedText = data.candidates[0].content.parts[0].text;
-                success = true;
-                console.log(`[API SYSTEM] Success! Content extracted using Key: ${maskedKey}`);
-
-            } catch (e) {
-                console.warn(`[API SYSTEM] Key ${maskedKey} failed. Reason: ${e.message}`);
-
-                currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
-                attempts++;
-
-                if (attempts < apiKeys.length) {
-                    console.log(`[API SYSTEM] Waiting 2 seconds before trying next key to bypass IP filters...`);
-                    await delay(2000); // THE MAGIC FIX
-                } else {
-                    throw new Error(e.message || "All API keys failed or hit limits.");
-                }
-            }
-        }
+        const csrftoken = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+        const response = await fetch('/inventory/api/analyze-sheet/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+            body: JSON.stringify({ mime_type: currentMime, data: currentBase64 })
+        });
+        const data = await response.json();
+        if (!response.ok || (data && data.error)) throw new Error((data && data.error) || `Server error ${response.status}`);
+        extractedText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        if (!extractedText) throw new Error("Empty response from server");
         
         const dateMatch = extractedText.match(/DATE_FOUND: (\d{4}-\d{2}-\d{2})/);
         if(dateMatch && dateMatch[1] !== document.getElementById('dateInput').value) {
