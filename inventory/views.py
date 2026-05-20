@@ -2621,7 +2621,7 @@ def daily_report_view(request):
     item_rows = []
     for row in data.get('detailed_rows', []):
         cols = row.get('cols', []) or []
-        total = sum(v for v in cols if isinstance(v, (int, float)))
+        total = sum(v.get('clo', 0) for v in cols if isinstance(v, dict))
         item_rows.append({
             'name': str(row.get('item', '')),
             'category': row.get('category', ''),
