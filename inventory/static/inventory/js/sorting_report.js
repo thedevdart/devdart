@@ -199,7 +199,7 @@ window.SortingReportApp = {
         this.hasSearched = true;
         
         try {
-            const res = await fetch(`/inventory/api/sorting-data/?start_date=${dates[0]}&end_date=${dates[1]}&type=${this.reportType}&mode=${this.engineMode}&group=${this.summaryGroup}`);
+            const res = await fetch(`/inventory/api/sorting-data/?start_date=${dates[0]}&end_date=${dates[1]}&type=${this.reportType}&mode=${this.engineMode}&group=${document.getElementById('summaryHiddenInput')?.value || this.summaryGroup}`);
             const data = await res.json();
             
             if(data.status === 'success') {
@@ -425,7 +425,7 @@ window.SortingReportApp = {
         if(!this.dateRange) return;
         const dates = this.dateRange.split(' to ');
         if (dates.length !== 2) return;
-        window.location.href = `/inventory/api/sorting-excel/?start_date=${dates[0]}&end_date=${dates[1]}&type=${this.reportType}&mode=${this.engineMode}&group=${this.summaryGroup}`;
+        window.location.href = `/inventory/api/sorting-excel/?start_date=${dates[0]}&end_date=${dates[1]}&type=${this.reportType}&mode=${this.engineMode}&group=${document.getElementById('summaryHiddenInput')?.value || this.summaryGroup}`;
     },
 
     openPreviewModal(url, date, center) {
