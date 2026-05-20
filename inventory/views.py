@@ -2606,10 +2606,35 @@ def daily_report_view(request):
     prev_d = StockSheet.objects.filter(date__lt=date_obj).order_by('-date').values_list('date', flat=True).first()
     next_d = StockSheet.objects.filter(date__gt=date_obj).order_by('date').values_list('date', flat=True).first()
 
+    center_rows = []
+    for c, s in zip(data.get('centers', []), data.get('summaries', [])):
+        center_obj = c.get('obj')
+        center_rows.append({
+            'name': getattr(center_obj, 'name', '-') if center_obj else '-',
+            'category': getattr(center_obj, 'category', '') if center_obj else '',
+            'rm': s.get('rm', 0) or 0,
+            'fg': s.get('fg', 0) or 0,
+            'total': s.get('total', 0) or 0,
+            'is_carried_over': c.get('is_carried_over', False),
+        })
+
+    item_rows = []
+    for row in data.get('detailed_rows', []):
+        cols = row.get('cols', []) or []
+        total = sum(v for v in cols if isinstance(v, (int, float)))
+        item_rows.append({
+            'name': str(row.get('item', '')),
+            'category': row.get('category', ''),
+            'total': total,
+        })
+
     return render(request, 'inventory/daily_report_view.html', {
         'date': date_obj,
         'date_str': date_str,
         'prev_date': prev_d,
         'next_date': next_d,
-        **data,
+        'center_rows': center_rows,
+        'item_rows': item_rows,
+        'grand_rm': data.get('grand_rm', 0),
+        'grand_fg': data.get('grand_fg', 0),
     })
