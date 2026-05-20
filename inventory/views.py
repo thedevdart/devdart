@@ -71,7 +71,7 @@ def api_attach_previous_report(request):
             return JsonResponse({'status': 'error', 'message': 'No previous report found to carry over.'})
 
         with transaction.atomic():
-            sheet, created = StockSheet.objects.get_or_create(center_id=center_id, date=target_date_obj)
+            sheet, created = StockSheet.objects.get_or_create(center_id=center_id, date=target_date_obj, defaults={'uploaded_by_source': 'admin'})
             
             sheet.image = prev_sheet.image
             sheet.is_carried_over = True
@@ -116,7 +116,7 @@ def save_stock(request):
             sheet, created = StockSheet.objects.get_or_create(
                 center=center, 
                 date=date_obj,
-                defaults={'image': image}
+                defaults={'image': image, 'uploaded_by_source': 'admin'}
             )
             if not created and image:
                 sheet.image = image
