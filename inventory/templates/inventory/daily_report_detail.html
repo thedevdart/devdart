@@ -48,9 +48,6 @@
         </div>
         
         <div class="flex flex-col sm:flex-row flex-wrap gap-3 w-full xl:w-auto mt-4 xl:mt-0">
-            <button onclick="pushToNexus()" id="nexusBtn" class="flex-1 sm:flex-none justify-center bg-brand hover:bg-brand/90 text-accent border border-accent/30 px-6 py-2.5 rounded-md text-[11px] font-black uppercase tracking-widest shadow-sm hover:border-accent transition-all duration-300 flex items-center gap-2 active:scale-95 h-[42px]">
-                <i class="fa-solid fa-cloud-arrow-up"></i> Push to Nexus
-            </button>
             <button @click="exportModal = true" class="flex-1 sm:flex-none justify-center bg-accent hover:bg-accent/90 text-brand px-6 py-2.5 rounded-md text-[11px] font-black uppercase tracking-widest shadow-sm flex items-center gap-2 transition-all border border-transparent active:scale-95 h-[42px]">
                 <i class="fa-solid fa-file-excel"></i> Export Excel
             </button>
@@ -292,15 +289,6 @@
         </div>
     </div>
 
-    <div id="nexus-toast" class="fixed bottom-5 right-5 z-50 hidden transition-all duration-300 transform translate-y-full opacity-0">
-        <div class="bg-brand text-white px-5 py-4 rounded-md shadow-2xl flex items-start gap-4 min-w-[320px] max-w-sm border-l-4 border-primary">
-            <i id="nexus-toast-icon" class="fa-solid fa-circle-notch fa-spin text-lg text-primary mt-0.5"></i>
-            <div class="flex-1">
-                <h4 id="nexus-toast-title" class="font-black text-[11px] text-slate-50 uppercase tracking-widest">Nexus Portal</h4>
-                <p id="nexus-toast-msg" class="text-xs font-medium text-slate-300 mt-1">Connecting to GitHub...</p>
-            </div>
-        </div>
-    </div>
 
 </div>
 
