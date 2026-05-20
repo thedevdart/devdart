@@ -2580,3 +2580,36 @@ def api_delete_target_report(request):
 def custom_reports_landing(request):
     """Renders the hub page for all custom reports."""
     return render(request, 'inventory/custom_reports_landing.html')
+
+# =================================================================
+# Dynamic in-app Daily Report View (PR #6)
+# =================================================================
+
+@require_app_access('inventory')
+def daily_report_view(request):
+    """In-app dynamic daily report. Reuses get_daily_matrix for data prep.
+
+    Query params:
+      date: YYYY-MM-DD (default = today)
+    The HD/LD filter is applied client-side via JS on the rendered table rows.
+    """
+    from django.utils import timezone as _tz_local
+    date_str = request.GET.get('date') or _tz_local.localdate().strftime('%Y-%m-%d')
+    try:
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        date_obj = _tz_local.localdate()
+        date_str = date_obj.strftime('%Y-%m-%d')
+
+    data = get_daily_matrix(date_str)
+
+    prev_d = StockSheet.objects.filter(date__lt=date_obj).order_by('-date').values_list('date', flat=True).first()
+    next_d = StockSheet.objects.filter(date__gt=date_obj).order_by('date').values_list('date', flat=True).first()
+
+    return render(request, 'inventory/daily_report_view.html', {
+        'date': date_obj,
+        'date_str': date_str,
+        'prev_date': prev_d,
+        'next_date': next_d,
+        **data,
+    })
