@@ -127,6 +127,11 @@
                     <span class="sidebar-text text-[13px] font-semibold tracking-wide">Daily Reports</span>
                 </a>
                 
+                <a href="{% url 'daily_report_view' %}" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors {% if request.resolver_match.url_name == 'daily_report_view' %} bg-white/10 text-white {% else %} text-white/60 hover:text-white hover:bg-white/5 {% endif %}">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    <span class="font-semibold text-sm">Daily Report View</span>
+                </a>
+
                 <a href="{% url 'centers_list' %}" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors {% if request.resolver_match.url_name == 'centers_list' or request.resolver_match.url_name == 'center_history' %} bg-white/10 text-white {% else %} text-white/60 hover:text-white hover:bg-white/5 {% endif %}">
                     <i class="fa-solid fa-building text-lg w-5 text-center shrink-0 {% if request.resolver_match.url_name == 'centers_list' or request.resolver_match.url_name == 'center_history' %}text-accent{% endif %}"></i>
                     <span class="sidebar-text text-[13px] font-semibold tracking-wide">Centers Setup</span>

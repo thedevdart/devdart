@@ -968,103 +968,6 @@ def download_daily_html(request, date_str):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
 
-@require_app_access('inventory')
-def api_get_nexus_manifest(request):
-    if not request.user.is_superuser:
-        return JsonResponse({'status': 'error', 'message': 'Superuser access required.'}, status=403)
-
-    dates = list(StockSheet.objects.values_list('date', flat=True).distinct().order_by('date'))
-    date_strs = [d.strftime('%Y-%m-%d') for d in dates]
-
-    media_files = []
-    media_root = settings.MEDIA_ROOT
-    if os.path.exists(media_root):
-        for root, dirs, files in os.walk(media_root):
-            for file in files:
-                file_path = os.path.join(root, file)
-                rel_path = os.path.relpath(file_path, media_root).replace('\\', '/')
-                media_files.append(rel_path)
-
-    return JsonResponse({'dates': date_strs, 'media': media_files})
-
-@require_app_access('inventory')
-@require_POST
-def api_push_nexus_item(request):
-    if not request.user.is_superuser:
-        return JsonResponse({'status': 'error', 'message': 'Superuser access required.'}, status=403)
-
-    try:
-        data = json.loads(request.body)
-        item_type = data.get('type', 'report') 
-        item_val = data.get('value')
-        
-        # SECURED: Pull from environment variables, never hardcode tokens!
-        GITHUB_TOKEN = os.environ.get('GITHUB_NEXUS_TOKEN', '')
-        if not GITHUB_TOKEN:
-            return JsonResponse({'status': 'error', 'message': 'GitHub Token not configured on server.'}, status=500)
-            
-        REPO_OWNER = "kkaranmistry"   
-        REPO_NAME = "nexus-view"    
-
-        headers = {
-            "Authorization": f"Bearer {GITHUB_TOKEN}",
-            "Accept": "application/vnd.github.v3+json"
-        }
-
-        if item_type == 'report' or not data.get('type'):
-            date_str = item_val
-            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-            matrix_data = get_daily_matrix(date_str)
-            
-            prev_d = StockSheet.objects.filter(date__lt=date_obj).order_by('-date').values_list('date', flat=True).first()
-            next_d = StockSheet.objects.filter(date__gt=date_obj).order_by('date').values_list('date', flat=True).first()
-            
-            prev_url = f"stockreport-{prev_d.strftime('%d%b').lower()}.html" if prev_d else None
-            next_url = f"stockreport-{next_d.strftime('%d%b').lower()}.html" if next_d else None
-            
-            html_content = render_to_string('inventory/daily_report_standalone.html', {
-                'date': date_obj, 'prev_url': prev_url, 'next_url': next_url, **matrix_data
-            })
-            
-            encoded_content = base64.b64encode(html_content.encode('utf-8')).decode('utf-8')
-            file_path = f"reports/stockreport-{date_obj.strftime('%d%b').lower()}.html"
-            
-        elif item_type == 'media':
-            abs_path = os.path.join(settings.MEDIA_ROOT, item_val)
-            with open(abs_path, 'rb') as f:
-                encoded_content = base64.b64encode(f.read()).decode('utf-8')
-            file_path = f"media/{item_val}"
-            
-        url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{file_path}"
-        
-        get_resp = requests.get(url, headers=headers)
-        payload = {"message": f"[skip ci] Auto-sync: {file_path}", "content": encoded_content}
-        if get_resp.status_code == 200:
-            payload["sha"] = get_resp.json().get('sha')
-            
-        put_resp = requests.put(url, headers=headers, json=payload)
-        
-        if put_resp.status_code in [200, 201]:
-            return JsonResponse({"status": "success"})
-        else:
-            return JsonResponse({"status": "error", "message": put_resp.json().get('message')})
-
-    except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)})
-
-@require_app_access('inventory')
-@require_POST
-def api_push_to_nexus(request, date_str):
-    if not request.user.is_superuser:
-        return JsonResponse({'status': 'error', 'message': 'Superuser access required.'}, status=403)
-
-    try:
-        request._body = json.dumps({'type': 'report', 'value': date_str}).encode('utf-8')
-        return api_push_nexus_item(request)
-    except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)})
-
-
 # ==========================================
 # 11. WHATSAPP TRACKER
 # ==========================================
@@ -1523,13 +1426,6 @@ def download_sorting_excel(request):
 # ==========================================
 # 14. DATA SYNC & BACKUP HUB (SUPERUSER ONLY)
 # ==========================================
-
-@require_app_access('inventory')
-def data_sync_hub(request):
-    if not request.user.is_superuser:
-        from django.http import HttpResponseForbidden
-        return HttpResponseForbidden("Superuser access required.")
-    return render(request, 'inventory/sync_hub.html')
 
 @require_app_access('inventory')
 def export_full_system(request):
@@ -2698,3 +2594,59 @@ def admin_disable_upload_token(request, center_id):
     token_obj.is_active = False
     token_obj.save(update_fields=['is_active'])
     return JsonResponse({'ok': True, 'is_active': False})
+# Dynamic in-app Daily Report View (PR #6)
+# =================================================================
+
+@require_app_access('inventory')
+def daily_report_view(request):
+    """In-app dynamic daily report. Reuses get_daily_matrix for data prep.
+
+    Query params:
+      date: YYYY-MM-DD (default = today)
+    The HD/LD filter is applied client-side via JS on the rendered table rows.
+    """
+    from django.utils import timezone as _tz_local
+    date_str = request.GET.get('date') or _tz_local.localdate().strftime('%Y-%m-%d')
+    try:
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        date_obj = _tz_local.localdate()
+        date_str = date_obj.strftime('%Y-%m-%d')
+
+    data = get_daily_matrix(date_str)
+
+    prev_d = StockSheet.objects.filter(date__lt=date_obj).order_by('-date').values_list('date', flat=True).first()
+    next_d = StockSheet.objects.filter(date__gt=date_obj).order_by('date').values_list('date', flat=True).first()
+
+    center_rows = []
+    for c, s in zip(data.get('centers', []), data.get('summaries', [])):
+        center_obj = c.get('obj')
+        center_rows.append({
+            'name': getattr(center_obj, 'name', '-') if center_obj else '-',
+            'category': getattr(center_obj, 'category', '') if center_obj else '',
+            'rm': s.get('rm', 0) or 0,
+            'fg': s.get('fg', 0) or 0,
+            'total': s.get('total', 0) or 0,
+            'is_carried_over': c.get('is_carried_over', False),
+        })
+
+    item_rows = []
+    for row in data.get('detailed_rows', []):
+        cols = row.get('cols', []) or []
+        total = sum(v.get('clo', 0) for v in cols if isinstance(v, dict))
+        item_rows.append({
+            'name': str(row.get('item', '')),
+            'category': row.get('category', ''),
+            'total': total,
+        })
+
+    return render(request, 'inventory/daily_report_view.html', {
+        'date': date_obj,
+        'date_str': date_str,
+        'prev_date': prev_d,
+        'next_date': next_d,
+        'center_rows': center_rows,
+        'item_rows': item_rows,
+        'grand_rm': data.get('grand_rm', 0),
+        'grand_fg': data.get('grand_fg', 0),
+    })
