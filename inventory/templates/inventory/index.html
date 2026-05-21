@@ -87,6 +87,7 @@
                         centerOpen: false, 
                         centerSearch: '', 
                         uploadedIds: [],
+                        supervisorIds: [],
                         activeIndex: -1,
                         centers: [
                             {% for center in centers %}
@@ -114,6 +115,9 @@
                             this.centerOpen = false;
                             this.activeIndex = -1;
                             loadCenterMasters();
+                            if (typeof maybeLoadSupervisorSheet === 'function') {
+                                maybeLoadSupervisorSheet(center.id);
+                            }
                         },
                         handleEnter() {
                             if (this.activeIndex >= 0 && this.activeIndex < this.filteredCenters.length) {
@@ -132,7 +136,7 @@
                         }
                     }" 
                     @click.away="centerOpen = false; activeIndex = -1"
-                    @uploads-checked.window="uploadedIds = window.uploadedCenterIds">
+                    @uploads-checked.window="uploadedIds = window.uploadedCenterIds || []; supervisorIds = window.supervisorCenterIds || []">
                     
                     <div class="relative w-full">
                         <i class="fa-solid fa-building absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
@@ -163,11 +167,16 @@
                                      }"
                                      :data-center-id="center.id">
                                     <span class="font-black uppercase tracking-widest" x-text="center.name"></span>
-                                    <template x-if="center.category">
-                                        <span class="px-2 py-1 rounded-sm text-[9px] font-black uppercase tracking-widest shrink-0 shadow-sm border"
-                                              :class="uploadedIds.includes(center.id) ? 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700' : 'bg-slate-100 dark:bg-[#05080f] text-slate-500 border-slate-200 dark:border-slate-700'"
-                                              x-text="center.category"></span>
-                                    </template>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <template x-if="supervisorIds.includes(center.id) && !uploadedIds.includes(center.id)">
+                                            <i class="fa-solid fa-image text-[12px] text-amber-600 dark:text-amber-400" title="Supervisor uploaded a sheet for this date"></i>
+                                        </template>
+                                        <template x-if="center.category">
+                                            <span class="px-2 py-1 rounded-sm text-[9px] font-black uppercase tracking-widest shadow-sm border"
+                                                  :class="uploadedIds.includes(center.id) ? 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700' : 'bg-slate-100 dark:bg-[#05080f] text-slate-500 border-slate-200 dark:border-slate-700'"
+                                                  x-text="center.category"></span>
+                                        </template>
+                                    </div>
                                 </div>
                             </template>
                             <div x-show="filteredCenters.length === 0" class="px-4 py-4 text-center text-slate-500 text-[10px] font-bold uppercase tracking-widest">
@@ -290,7 +299,16 @@
                     </div>
                 </div>
             </div>
-            
+            <!-- Supervisor Pre-load Banner (hidden unless a supervisor sheet is loaded) -->
+            <div id="supervisorBadge" class="hidden px-4 py-2 border-b border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shrink-0">
+                <i class="fa-solid fa-image"></i>
+                <span>Uploaded by Supervisor<span data-supervisor-time></span></span>
+            </div>
+            <!-- Supervisor Pre-load Banner (hidden unless a supervisor sheet is loaded) -->
+            <div id="supervisorBadge" class="hidden px-4 py-2 border-b border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shrink-0">
+                <i class="fa-solid fa-image"></i>
+                <span>Uploaded by Supervisor<span data-supervisor-time></span></span>
+            </div>
             <!-- Viewer Area -->
             <div id="previewContainer" class="flex-1 relative flex flex-col items-center justify-center overflow-auto custom-scrollbar p-4 md:p-6 w-full min-h-0 bg-slate-50 dark:bg-[#05080f]">
                 

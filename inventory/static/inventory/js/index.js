@@ -11,7 +11,9 @@ let extractionAuditLog = [];
 window.pendingAliases = [];
 window.currentActiveTab = 'closing'; 
 window.uploadedCenterIds = [];
-
+window.supervisorCenterIds = [];
+window.supervisorSheets = {};
+window.isSupervisorPreload = false;
 // --- UNDO / REDO STATE ENGINE ---
 window.historyStack = [];
 window.historyIndex = -1;
@@ -1126,7 +1128,8 @@ async function checkUploadStatus() {
         const response = await fetch(`/inventory/api/check-uploads/?date=${dateVal}`);
         const data = await response.json();
         window.uploadedCenterIds = data.ids || [];
-        
+        window.supervisorCenterIds = data.supervisor_ids || [];
+        window.supervisorSheets = data.supervisor_sheets || {};
         window.dispatchEvent(new CustomEvent('uploads-checked'));
         
         // Backup for native select (if hidden one is ever used)
@@ -1176,57 +1179,102 @@ async function attachPreviousReport() {
     }
 }
 
+async function loadFileIntoPreview(file) {
+    if (!file) return;
+    currentFileObj = file;
+    document.getElementById('placeholder-content').classList.add('hidden');
+    document.getElementById('zoomToggleBtn').classList.remove('hidden');
+    document.getElementById('zoomToggleBtn').classList.add('flex');
+    const pdfC = document.getElementById('pdfCanvasContainer');
+    const pImg = document.getElementById('previewImg');
+    pdfC.innerHTML = '';
+    pdfC.classList.add('hidden');
+    pImg.classList.add('hidden');
+    const fileUrl = URL.createObjectURL(file);
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = async function(event) {
+            currentBase64 = event.target.result.split(',')[1];
+            currentMime = file.type;
+            if (file.type === 'application/pdf') {
+                pdfC.classList.remove('hidden');
+                pdfC.classList.add('flex');
+                try {
+                    const pdf = await pdfjsLib.getDocument(fileUrl).promise;
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const canvas = document.createElement('canvas');
+                        canvas.className = 'mb-4 shadow-sm rounded border border-slate-200 dark:border-slate-700 max-w-full bg-white dark:bg-slate-800 block';
+                        const vp = (await pdf.getPage(i)).getViewport({ scale: 1.5 });
+                        canvas.height = vp.height;
+                        canvas.width = vp.width;
+                        pdfC.appendChild(canvas);
+                        await (await pdf.getPage(i)).render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+                    }
+                } catch(err) {
+                    console.error("PDF Render Error:", err);
+                    pdfC.innerHTML = `<div class="text-red-500 font-bold p-4 flex flex-col items-center"><i class="fa-solid fa-triangle-exclamation text-3xl mb-2"></i> Error loading PDF: ${err.message}</div>`;
+                }
+            } else {
+                pImg.src = event.target.result;
+                pImg.classList.remove('hidden');
+            }
+            resolve();
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
 async function handleFileSelectBase(e) {
     const file = e.target.files[0];
     if (!file) return;
-    currentFileObj = file; 
-    document.getElementById('placeholder-content').classList.add('hidden');
-    
-    // UNHIDE ZOOM BUTTON
-    document.getElementById('zoomToggleBtn').classList.remove('hidden');
-    document.getElementById('zoomToggleBtn').classList.add('flex');
+    window.isSupervisorPreload = false;
+    hideSupervisorBadge();
+    await loadFileIntoPreview(file);
+}
 
-    const pdfC = document.getElementById('pdfCanvasContainer'); 
-    const pImg = document.getElementById('previewImg');
-    pdfC.innerHTML = ''; 
-    pdfC.classList.add('hidden'); 
-    pImg.classList.add('hidden');
+async function maybeLoadSupervisorSheet(centerId) {
+    const dateVal = document.getElementById('dateInput').value;
+    const sheet = (window.supervisorSheets || {})[centerId];
+    if (!sheet || !sheet.image_url || !dateVal) {
+        window.isSupervisorPreload = false;
+        hideSupervisorBadge();
+        return;
+    }
+    try {
+        const res = await fetch(sheet.image_url);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const blob = await res.blob();
+        const urlPath = sheet.image_url.split('?')[0];
+        const name = urlPath.substring(urlPath.lastIndexOf('/') + 1) || 'supervisor-upload';
+        const file = new File([blob], name, { type: blob.type || 'image/jpeg' });
+        window.isSupervisorPreload = true;
+        showSupervisorBadge(sheet.uploaded_at);
+        await loadFileIntoPreview(file);
+    } catch(err) {
+        console.error("Supervisor pre-load failed:", err);
+        window.isSupervisorPreload = false;
+        hideSupervisorBadge();
+    }
+}
 
-    // Create a safe native browser URL to render the PDF without crashing
-    const fileUrl = URL.createObjectURL(file);
+function showSupervisorBadge(uploadedAtIso) {
+    const badge = document.getElementById('supervisorBadge');
+    if (!badge) return;
+    let timeStr = '';
+    if (uploadedAtIso) {
+        try {
+            const d = new Date(uploadedAtIso);
+            timeStr = ' \u00b7 ' + d.toLocaleString();
+        } catch(e) {}
+    }
+    const timeEl = badge.querySelector('[data-supervisor-time]');
+    if (timeEl) timeEl.textContent = timeStr;
+    badge.classList.remove('hidden');
+}
 
-    const reader = new FileReader();
-    reader.onload = async function(event) {
-        currentBase64 = event.target.result.split(',')[1]; 
-        currentMime = file.type;
-        
-        if (file.type === 'application/pdf') {
-            pdfC.classList.remove('hidden'); 
-            pdfC.classList.add('flex');                
-            
-            try {
-                // Feed the safe URL to PDF.js
-                const pdf = await pdfjsLib.getDocument(fileUrl).promise;
-                
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    const canvas = document.createElement('canvas'); 
-                    canvas.className = 'mb-4 shadow-sm rounded border border-slate-200 dark:border-slate-700 max-w-full bg-white dark:bg-slate-800 block';
-                    const vp = (await pdf.getPage(i)).getViewport({ scale: 1.5 }); // Crisper scale
-                    canvas.height = vp.height; 
-                    canvas.width = vp.width;
-                    pdfC.appendChild(canvas);
-                    await (await pdf.getPage(i)).render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-                }
-            } catch(err) {
-                console.error("PDF Render Error:", err);
-                pdfC.innerHTML = `<div class="text-red-500 font-bold p-4 flex flex-col items-center"><i class="fa-solid fa-triangle-exclamation text-3xl mb-2"></i> Error loading PDF: ${err.message}</div>`;
-            }
-        } else { 
-            pImg.src = event.target.result; 
-            pImg.classList.remove('hidden'); 
-        }
-    }; 
-    reader.readAsDataURL(file);
+function hideSupervisorBadge() {
+    const badge = document.getElementById('supervisorBadge');
+    if (badge) badge.classList.add('hidden');
 }
 
 document.getElementById('fileInput').addEventListener('change', handleFileSelectBase);

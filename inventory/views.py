@@ -46,10 +46,31 @@ def dashboard(request):
 def api_check_uploads(request):
     date_str = request.GET.get('date')
     if not date_str:
-        return JsonResponse({'ids': []})
-    
-    completed_ids = StockSheet.objects.filter(date=date_str).values_list('center_id', flat=True)
-    return JsonResponse({'ids': list(completed_ids)})
+        return JsonResponse({'ids': [], 'supervisor_ids': [], 'supervisor_sheets': {}})
+    # Centers where admin has saved StockEntry rows for this date (=> green)
+    completed_ids = list(
+        StockEntry.objects.filter(sheet__date=date_str)
+        .values_list('sheet__center_id', flat=True)
+        .distinct()
+    )
+    # Centers with supervisor-uploaded sheet but no entries yet (=> icon, awaiting admin analysis)
+    supervisor_sheets_qs = StockSheet.objects.filter(
+        date=date_str,
+        uploaded_by_source='supervisor',
+    ).exclude(center_id__in=completed_ids)
+    supervisor_ids = [s.center_id for s in supervisor_sheets_qs]
+    supervisor_sheets = {
+        s.center_id: {
+            'image_url': s.image.url if s.image else None,
+            'uploaded_at': s.uploaded_at.isoformat() if s.uploaded_at else None,
+        }
+        for s in supervisor_sheets_qs
+    }
+    return JsonResponse({
+        'ids': completed_ids,
+        'supervisor_ids': supervisor_ids,
+        'supervisor_sheets': supervisor_sheets,
+    })
 
 @require_app_access('inventory')
 @require_POST
