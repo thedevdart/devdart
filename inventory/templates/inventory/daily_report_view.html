@@ -1,0 +1,124 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto p-6 font-sans">
+
+  <div class="flex flex-wrap items-center gap-3 mb-6">
+    <h1 class="text-2xl font-black text-slate-800 dark:text-white">Daily Report</h1>
+    <div class="ml-auto flex items-center gap-2">
+      {% if prev_date %}
+        <a href="?date={{ prev_date|date:'Y-m-d' }}" class="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200">← Prev</a>
+      {% else %}
+        <span class="px-3 py-2 text-slate-400 text-sm">← Prev</span>
+      {% endif %}
+      <input type="date" value="{{ date_str }}" id="dateInput" class="px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-200">
+      {% if next_date %}
+        <a href="?date={{ next_date|date:'Y-m-d' }}" class="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200">Next →</a>
+      {% else %}
+        <span class="px-3 py-2 text-slate-400 text-sm">Next →</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="flex items-center gap-2 mb-6">
+    <span class="text-sm font-semibold text-slate-600 dark:text-slate-400">Filter:</span>
+    <button data-filter="ALL" class="filter-pill active px-4 py-1.5 rounded-full text-sm font-semibold bg-blue-600 text-white transition-colors">All centers</button>
+    <button data-filter="HD" class="filter-pill px-4 py-1.5 rounded-full text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors">HD only</button>
+    <button data-filter="LD" class="filter-pill px-4 py-1.5 rounded-full text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors">LD only</button>
+  </div>
+
+  <div class="text-center mb-6">
+    <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ date|date:"l, j F Y" }}</h2>
+  </div>
+
+  <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 mb-6 overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+      <h3 class="font-bold text-slate-800 dark:text-slate-200">Center-wise stock</h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 dark:bg-slate-800/50">
+          <tr>
+            <th class="px-4 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Center</th>
+            <th class="px-4 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Category</th>
+            <th class="px-4 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Raw Material</th>
+            <th class="px-4 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Finished Goods</th>
+            <th class="px-4 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in center_rows %}
+            <tr data-category="{{ row.category|default:'ALL' }}" class="center-row border-t border-slate-100 dark:border-slate-800">
+              <td class="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">{{ row.name }}</td>
+              <td class="px-4 py-2">
+                <span class="px-2 py-0.5 text-xs rounded-full {% if row.category == 'HD' %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300{% elif row.category == 'LD' %}bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300{% else %}bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300{% endif %}">{{ row.category|default:'-' }}</span>
+              </td>
+              <td class="px-4 py-2 text-right tabular-nums">{{ row.rm|default:'0' }}</td>
+              <td class="px-4 py-2 text-right tabular-nums">{{ row.fg|default:'0' }}</td>
+              <td class="px-4 py-2 text-right tabular-nums font-semibold">{{ row.total|default:'0' }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3" class="px-4 py-8 text-center text-slate-500 dark:text-slate-400">No center data uploaded for {{ date|date:"j M Y" }}.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+      <h3 class="font-bold text-slate-800 dark:text-slate-200">Item-wise totals</h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 dark:bg-slate-800/50">
+          <tr>
+            <th class="px-4 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Item</th>
+            <th class="px-4 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Category</th>
+            <th class="px-4 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in item_rows %}
+            <tr class="border-t border-slate-100 dark:border-slate-800">
+              <td class="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">{{ item.name }}</td>
+              <td class="px-4 py-2"><span class="px-2 py-0.5 text-xs rounded-full {% if item.category == 'Raw Material' %}bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300{% elif item.category == 'Finished Goods' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300{% else %}bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300{% endif %}">{{ item.category|default:'-' }}</span></td>
+              <td class="px-4 py-2 text-right tabular-nums font-semibold">{{ item.total|default:'0' }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3" class="px-4 py-8 text-center text-slate-500 dark:text-slate-400">No item totals available for {{ date|date:"j M Y" }}.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const dateInput = document.getElementById('dateInput');
+  if (dateInput) {
+    dateInput.addEventListener('change', () => {
+      window.location.search = '?date=' + dateInput.value;
+    });
+  }
+  const pills = document.querySelectorAll('.filter-pill');
+  pills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      const filter = pill.dataset.filter;
+      pills.forEach(p => {
+        p.classList.remove('active', 'bg-blue-600', 'text-white');
+        p.classList.add('bg-slate-100', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-200');
+      });
+      pill.classList.add('active', 'bg-blue-600', 'text-white');
+      pill.classList.remove('bg-slate-100', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-200');
+      document.querySelectorAll('.center-row').forEach(row => {
+        const cat = row.dataset.category;
+        row.style.display = (filter === 'ALL' || cat === filter) ? '' : 'none';
+      });
+    });
+  });
+})();
+</script>
+{% endblock %}

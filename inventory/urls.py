@@ -84,4 +84,6 @@ urlpatterns = [
     path('api/custom-report/items/', views.api_get_report_items, name='api_get_custom_report_items'),
     path('api/custom-report/generate/', views.api_generate_custom_report, name='api_generate_custom_report'),
     path('api/custom-report/export/', views.export_custom_report_excel, name='api_export_custom_report'),
+    # Dynamic Daily Report View (PR #6)
+    path('daily-report-view/', views.daily_report_view, name='daily_report_view'),
 ]

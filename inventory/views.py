@@ -2476,3 +2476,61 @@ def api_delete_target_report(request):
 def custom_reports_landing(request):
     """Renders the hub page for all custom reports."""
     return render(request, 'inventory/custom_reports_landing.html')
+
+# =================================================================
+# Dynamic in-app Daily Report View (PR #6)
+# =================================================================
+
+@require_app_access('inventory')
+def daily_report_view(request):
+    """In-app dynamic daily report. Reuses get_daily_matrix for data prep.
+
+    Query params:
+      date: YYYY-MM-DD (default = today)
+    The HD/LD filter is applied client-side via JS on the rendered table rows.
+    """
+    from django.utils import timezone as _tz_local
+    date_str = request.GET.get('date') or _tz_local.localdate().strftime('%Y-%m-%d')
+    try:
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        date_obj = _tz_local.localdate()
+        date_str = date_obj.strftime('%Y-%m-%d')
+
+    data = get_daily_matrix(date_str)
+
+    prev_d = StockSheet.objects.filter(date__lt=date_obj).order_by('-date').values_list('date', flat=True).first()
+    next_d = StockSheet.objects.filter(date__gt=date_obj).order_by('date').values_list('date', flat=True).first()
+
+    center_rows = []
+    for c, s in zip(data.get('centers', []), data.get('summaries', [])):
+        center_obj = c.get('obj')
+        center_rows.append({
+            'name': getattr(center_obj, 'name', '-') if center_obj else '-',
+            'category': getattr(center_obj, 'category', '') if center_obj else '',
+            'rm': s.get('rm', 0) or 0,
+            'fg': s.get('fg', 0) or 0,
+            'total': s.get('total', 0) or 0,
+            'is_carried_over': c.get('is_carried_over', False),
+        })
+
+    item_rows = []
+    for row in data.get('detailed_rows', []):
+        cols = row.get('cols', []) or []
+        total = sum(v.get('clo', 0) for v in cols if isinstance(v, dict))
+        item_rows.append({
+            'name': str(row.get('item', '')),
+            'category': row.get('category', ''),
+            'total': total,
+        })
+
+    return render(request, 'inventory/daily_report_view.html', {
+        'date': date_obj,
+        'date_str': date_str,
+        'prev_date': prev_d,
+        'next_date': next_d,
+        'center_rows': center_rows,
+        'item_rows': item_rows,
+        'grand_rm': data.get('grand_rm', 0),
+        'grand_fg': data.get('grand_fg', 0),
+    })
