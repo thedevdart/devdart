@@ -215,31 +215,6 @@ window.DailyReportApp = {
             if (grandSummaryCells[i]) grandSummaryCells[i].innerHTML = colGrand > 0 ? colGrand.toLocaleString() : '<span class="opacity-30">-</span>';
         }
     },
-
-    async pushToNexus() {
-        if (!this.date || !this.csrfToken) return;
-
-        const btn = document.getElementById('nexusBtn');
-        const originalHTML = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Pushing...';
-        btn.disabled = true; 
-        btn.classList.add('opacity-80');
-
-        const toast = document.getElementById('nexus-toast');
-        const toastIcon = document.getElementById('nexus-toast-icon');
-        const toastMsg = document.getElementById('nexus-toast-msg');
-        
-        toastIcon.className = "fa-solid fa-circle-notch fa-spin text-lg text-primary mt-0.5";
-        toastMsg.innerText = "Building snapshot and connecting to Vercel/GitHub...";
-        toast.classList.remove('hidden');
-        
-        setTimeout(() => toast.classList.remove('translate-y-full', 'opacity-0'), 10);
-        
-        try {
-            const response = await fetch(`/inventory/api/nexus-push/${this.date}/`, {
-                method: 'POST', 
-                headers: { 'X-CSRFToken': this.csrfToken, 'Content-Type': 'application/json' }
-            });
             const data = await response.json();
             
             if (data.status === 'success') {
@@ -272,6 +247,5 @@ window.DailyReportApp = {
 
 window.switchReportType = (mode) => window.DailyReportApp.switchReportType(mode);
 window.updateTotals = (filter) => window.DailyReportApp.updateTotals(filter);
-window.pushToNexus = () => window.DailyReportApp.pushToNexus();
 
 document.addEventListener("DOMContentLoaded", () => window.DailyReportApp.init());

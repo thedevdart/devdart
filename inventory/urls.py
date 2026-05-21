@@ -33,7 +33,6 @@ urlpatterns = [
 
     # --- 7. WhatsApp & Sync ---
     path('daily-reports/<str:date_str>/download-html/', views.download_daily_html, name='download_daily_html'),
-    path('api/nexus-push/<str:date_str>/', views.api_push_to_nexus, name='api_push_to_nexus'),
     path('whatsapp-tracker/', views.whatsapp_tracker, name='whatsapp_tracker'),
     path('api/whatsapp/status/', views.api_whatsapp_status, name='api_whatsapp_status'),
     path('api/whatsapp/toggle/', views.api_whatsapp_toggle, name='api_whatsapp_toggle'),
@@ -50,11 +49,8 @@ urlpatterns = [
     path('api/sorting-excel/', views.download_sorting_excel, name='download_sorting_excel'),
 
     # --- 10. System Sync ---
-    path('sync/', views.data_sync_hub, name='data_sync_hub'),
     path('sync/export/', views.export_full_system, name='export_full_system'),
     path('sync/import/', views.import_full_system, name='import_full_system'),
-    path('api/nexus/manifest/', views.api_get_nexus_manifest, name='api_get_nexus_manifest'),
-    path('api/nexus/push-item/', views.api_push_nexus_item, name='api_push_nexus_item'),
 
     # --- 11. Templates & Aliases ---
     path('center/<int:center_id>/template/', views.center_template_builder, name='center_template_builder'),
