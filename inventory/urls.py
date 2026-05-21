@@ -84,6 +84,11 @@ urlpatterns = [
     path('api/custom-report/items/', views.api_get_report_items, name='api_get_custom_report_items'),
     path('api/custom-report/generate/', views.api_generate_custom_report, name='api_generate_custom_report'),
     path('api/custom-report/export/', views.export_custom_report_excel, name='api_export_custom_report'),
+    # Supervisor self-service upload (PR #2)
+    path('upload/<str:token>/', views.supervisor_upload_page, name='supervisor_upload_page'),
+    path('upload/<str:token>/submit/', views.supervisor_upload_submit, name='supervisor_upload_submit'),
+    path('api/manage-centers/<int:center_id>/upload-token/generate/', views.admin_generate_upload_token, name='admin_generate_upload_token'),
+    path('api/manage-centers/<int:center_id>/upload-token/disable/', views.admin_disable_upload_token, name='admin_disable_upload_token'),
     # Dynamic Daily Report View (PR #6)
     path('daily-report-view/', views.daily_report_view, name='daily_report_view'),
 ]

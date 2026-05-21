@@ -1,0 +1,154 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Upload Stock Sheet — {{ center.name }}</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f7; color: #1d1d1f; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+        .wrap { max-width: 480px; margin: 0 auto; background: #ffffff; min-height: 100vh; display: flex; flex-direction: column; }
+        header { padding: 20px; border-bottom: 1px solid #e5e5e7; display: flex; justify-content: space-between; align-items: center; }
+        header .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #86868b; margin: 0 0 4px; }
+        header h1 { font-size: 18px; font-weight: 600; margin: 0; }
+        header .avatar { width: 40px; height: 40px; border-radius: 50%; background: #e7f1ff; color: #0040a0; font-weight: 600; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+        main { padding: 20px; flex: 1; }
+        .field { margin-bottom: 20px; }
+        .field label { display: block; font-size: 12px; color: #6e6e73; margin-bottom: 6px; letter-spacing: 0.3px; }
+        input[type=date] { width: 100%; padding: 14px; font-size: 16px; border: 1px solid #d2d2d7; border-radius: 8px; background: #ffffff; font-family: inherit; color: #1d1d1f; }
+        input[type=date]:focus { outline: 2px solid #0040a0; outline-offset: -1px; }
+        .file-card { position: relative; border: 1.5px dashed #c7c7cc; border-radius: 10px; padding: 28px 16px; text-align: center; background: #fafafa; transition: border-color .15s, background .15s; }
+        .file-card.has-file { border-style: solid; border-color: #34c759; background: #f0fff5; }
+        .file-card input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        .file-card .icon { font-size: 32px; line-height: 1; }
+        .file-card .primary { font-size: 15px; font-weight: 600; margin-top: 8px; }
+        .file-card .secondary { font-size: 12px; color: #86868b; margin-top: 2px; }
+        .file-card .filename { font-size: 14px; font-weight: 500; margin-top: 8px; word-break: break-all; }
+        button[type=submit] { width: 100%; padding: 16px; font-size: 16px; font-weight: 600; color: #ffffff; background: #2c5282; border: none; border-radius: 10px; cursor: pointer; font-family: inherit; transition: background .15s, opacity .15s; }
+        button[type=submit]:hover { background: #1a365d; }
+        button[type=submit]:disabled { opacity: 0.55; cursor: wait; }
+        .msg { margin-top: 16px; padding: 12px 14px; border-radius: 8px; font-size: 14px; line-height: 1.4; }
+        .msg.ok { background: #e6f7eb; color: #1a5d2f; border: 1px solid #b6e0c2; }
+        .msg.error { background: #fdecea; color: #8a1a14; border: 1px solid #f5b6b3; }
+        .recent { margin-top: 26px; padding-top: 18px; border-top: 1px solid #e5e5e7; }
+        .recent h2 { font-size: 12px; color: #6e6e73; letter-spacing: 0.5px; margin: 0 0 10px; text-transform: uppercase; font-weight: 600; }
+        .recent .row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f2; font-size: 14px; }
+        .recent .row:last-child { border-bottom: none; }
+        .pill { font-size: 11px; padding: 3px 10px; border-radius: 999px; font-weight: 600; letter-spacing: 0.3px; }
+        .pill.review { background: #fff3d6; color: #7a4f00; }
+        .pill.done { background: #e6f7eb; color: #1a5d2f; }
+        .empty { font-size: 13px; color: #86868b; padding: 8px 0; }
+        footer { padding: 16px 20px; font-size: 11px; color: #86868b; border-top: 1px solid #e5e5e7; text-align: center; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <div>
+            <p class="label">Lucro stock upload</p>
+            <h1>{{ center.name }}</h1>
+        </div>
+        <div class="avatar" aria-hidden="true">{{ center.name|slice:":2"|upper }}</div>
+    </header>
+
+    <main>
+        <form id="upload-form" method="post" enctype="multipart/form-data" action="{% url 'supervisor_upload_submit' token=token %}">
+            {% csrf_token %}
+
+            <div class="field">
+                <label for="date">Date of this sheet</label>
+                <input type="date" id="date" name="date"
+                       value="{{ today|date:'Y-m-d' }}"
+                       min="{{ allowed_dates|last|date:'Y-m-d' }}"
+                       max="{{ today|date:'Y-m-d' }}" required>
+            </div>
+
+            <div class="field">
+                <label for="sheet-input">Stock sheet</label>
+                <div class="file-card" id="file-card">
+                    <div class="icon" id="file-icon">📷</div>
+                    <div class="primary" id="file-primary">Take photo of sheet</div>
+                    <div class="secondary" id="file-secondary">or tap to choose photo / PDF (max {{ max_file_mb }} MB)</div>
+                    <input type="file" id="sheet-input" name="sheet" accept="image/jpeg,image/png,image/heic,image/heif,application/pdf" capture="environment" required>
+                </div>
+            </div>
+
+            <button type="submit" id="submit-btn">Submit sheet for review</button>
+            <div id="msg" class="msg" style="display:none" role="alert"></div>
+        </form>
+
+        <section class="recent">
+            <h2>Recent uploads</h2>
+            {% for sheet in recent %}
+                <div class="row">
+                    <span>{{ sheet.date|date:"j M Y" }}</span>
+                    {% if sheet.entries.exists %}
+                        <span class="pill done">Reviewed</span>
+                    {% else %}
+                        <span class="pill review">Awaiting review</span>
+                    {% endif %}
+                </div>
+            {% empty %}
+                <p class="empty">No sheets uploaded yet for {{ center.name }}.</p>
+            {% endfor %}
+        </section>
+    </main>
+
+    <footer>This link is private to {{ center.name }}. Don't share it publicly.</footer>
+</div>
+
+<script>
+(function() {
+    const form = document.getElementById('upload-form');
+    const fileInput = document.getElementById('sheet-input');
+    const fileCard = document.getElementById('file-card');
+    const submitBtn = document.getElementById('submit-btn');
+    const msg = document.getElementById('msg');
+    const icon = document.getElementById('file-icon');
+    const primary = document.getElementById('file-primary');
+    const secondary = document.getElementById('file-secondary');
+
+    fileInput.addEventListener('change', function() {
+        if (fileInput.files && fileInput.files[0]) {
+            const f = fileInput.files[0];
+            fileCard.classList.add('has-file');
+            icon.textContent = '📄';
+            primary.textContent = f.name;
+            primary.className = 'filename';
+            secondary.textContent = (f.size / 1024 / 1024).toFixed(1) + ' MB · tap to change';
+        }
+    });
+
+    function showMsg(text, isError) {
+        msg.textContent = text;
+        msg.className = 'msg ' + (isError ? 'error' : 'ok');
+        msg.style.display = 'block';
+    }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        msg.style.display = 'none';
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Uploading...';
+        const fd = new FormData(form);
+        try {
+            const res = await fetch(form.action, { method: 'POST', body: fd, credentials: 'same-origin' });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) {
+                showMsg(data.message || 'Uploaded.', false);
+                setTimeout(() => location.reload(), 1800);
+            } else {
+                showMsg(data.error || 'Upload failed. Please try again.', true);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit sheet for review';
+            }
+        } catch (err) {
+            showMsg('Network error. Check your connection and try again.', true);
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit sheet for review';
+        }
+    });
+})();
+</script>
+</body>
+</html>

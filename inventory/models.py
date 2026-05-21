@@ -56,6 +56,10 @@ class StockSheet(models.Model):
     is_carried_over = models.BooleanField(default=False)
     copied_from_date = models.DateField(null=True, blank=True)
 
+    UPLOAD_SOURCE_CHOICES = [('admin', 'Admin'), ('supervisor', 'Supervisor')]
+    uploaded_by_source = models.CharField(max_length=20, choices=UPLOAD_SOURCE_CHOICES, default='admin', db_index=True)
+    uploaded_by_token = models.ForeignKey('CenterUploadToken', on_delete=models.SET_NULL, null=True, blank=True, related_name='uploaded_sheets')
+
     class Meta:
         unique_together = ('center', 'date')
         ordering = ['-date']
@@ -160,3 +164,39 @@ class TargetReportColumn(models.Model):
 
     def __str__(self):
         return f"{self.report.name} - {self.column_name}"
+
+class CenterUploadToken(models.Model):
+    """Per-center secret token enabling supervisors to upload stock sheets via a public URL.
+
+    One active token per center. Admins can rotate or disable without deleting history.
+    """
+    center = models.OneToOneField(Center, on_delete=models.CASCADE, related_name='upload_token')
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    rotated_at = models.DateTimeField(null=True, blank=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        status = 'active' if self.is_active else 'disabled'
+        return f"Upload token for {self.center.name} ({status})"
+
+    @classmethod
+    def generate_for(cls, center):
+        """Create or rotate the token for `center`. Returns the saved token instance.
+
+        Idempotent: if a token already exists, it is replaced (rotated) and
+        `rotated_at` is set; on first creation, `rotated_at` stays NULL.
+        """
+        import secrets
+        from django.utils import timezone
+        new_token = secrets.token_urlsafe(32)
+        obj, _created = cls.objects.update_or_create(
+            center=center,
+            defaults={
+                'token': new_token,
+                'is_active': True,
+                'rotated_at': timezone.now(),
+            },
+        )
+        return obj

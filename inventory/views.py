@@ -71,7 +71,7 @@ def api_attach_previous_report(request):
             return JsonResponse({'status': 'error', 'message': 'No previous report found to carry over.'})
 
         with transaction.atomic():
-            sheet, created = StockSheet.objects.get_or_create(center_id=center_id, date=target_date_obj)
+            sheet, created = StockSheet.objects.get_or_create(center_id=center_id, date=target_date_obj, defaults={'uploaded_by_source': 'admin'})
             
             sheet.image = prev_sheet.image
             sheet.is_carried_over = True
@@ -116,7 +116,7 @@ def save_stock(request):
             sheet, created = StockSheet.objects.get_or_create(
                 center=center, 
                 date=date_obj,
-                defaults={'image': image}
+                defaults={'image': image, 'uploaded_by_source': 'admin'}
             )
             if not created and image:
                 sheet.image = image
@@ -2478,6 +2478,122 @@ def custom_reports_landing(request):
     return render(request, 'inventory/custom_reports_landing.html')
 
 # =================================================================
+# Supervisor self-service upload (PR #2)
+# =================================================================
+
+from django.urls import reverse
+from django.utils import timezone as _tz
+from .models import CenterUploadToken
+
+ALLOWED_UPLOAD_DAYS_BACK = 7
+MAX_UPLOAD_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
+ALLOWED_UPLOAD_MIMES = {
+    'image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif',
+    'application/pdf',
+}
+
+
+@ensure_csrf_cookie
+def supervisor_upload_page(request, token):
+    """Public page where a center supervisor uploads their stock sheet.
+
+    No Django auth: the URL token IS the authentication. The view 404s on any
+    unknown or disabled token, so leaking the URL exposes only THAT center.
+    """
+    token_obj = get_object_or_404(CenterUploadToken, token=token, is_active=True)
+    center = token_obj.center
+    today = _tz.localdate()
+    allowed_dates = [today - timedelta(days=i) for i in range(ALLOWED_UPLOAD_DAYS_BACK + 1)]
+
+    recent = StockSheet.objects.filter(center=center).order_by('-date')[:5]
+
+    return render(request, 'inventory/supervisor_upload.html', {
+        'center': center,
+        'token': token,
+        'allowed_dates': allowed_dates,
+        'today': today,
+        'recent': recent,
+        'max_file_mb': MAX_UPLOAD_FILE_BYTES // (1024 * 1024),
+    })
+
+
+@require_POST
+def supervisor_upload_submit(request, token):
+    """Receive a supervisor-uploaded stock sheet. Public endpoint, token-authed."""
+    token_obj = get_object_or_404(CenterUploadToken, token=token, is_active=True)
+    center = token_obj.center
+    today = _tz.localdate()
+
+    date_str = request.POST.get('date', '').strip()
+    try:
+        upload_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'error': 'Please pick a valid date.'}, status=400)
+    if upload_date > today:
+        return JsonResponse({'error': 'You cannot upload for a future date.'}, status=400)
+    if upload_date < today - timedelta(days=ALLOWED_UPLOAD_DAYS_BACK):
+        return JsonResponse({'error': f'You can only upload sheets from the last {ALLOWED_UPLOAD_DAYS_BACK} days. Contact admin for older dates.'}, status=400)
+
+    if StockSheet.objects.filter(center=center, date=upload_date).exists():
+        return JsonResponse({'error': f'A sheet for {upload_date.strftime("%d %b %Y")} has already been uploaded for {center.name}. Contact admin if you need to replace it.'}, status=409)
+
+    upload = request.FILES.get('sheet')
+    if not upload:
+        return JsonResponse({'error': 'Please choose a photo or PDF of the sheet.'}, status=400)
+    if upload.size > MAX_UPLOAD_FILE_BYTES:
+        return JsonResponse({'error': f'File is too large ({upload.size // (1024 * 1024)} MB). Max allowed is {MAX_UPLOAD_FILE_BYTES // (1024 * 1024)} MB.'}, status=400)
+    if upload.content_type not in ALLOWED_UPLOAD_MIMES:
+        return JsonResponse({'error': 'File must be a photo (JPG / PNG / HEIC) or a PDF.'}, status=400)
+
+    sheet = StockSheet.objects.create(
+        center=center,
+        date=upload_date,
+        image=upload,
+        uploaded_by_source='supervisor',
+        uploaded_by_token=token_obj,
+    )
+    token_obj.last_used_at = _tz.now()
+    token_obj.save(update_fields=['last_used_at'])
+
+    return JsonResponse({
+        'ok': True,
+        'date': str(upload_date),
+        'sheet_id': sheet.id,
+        'message': f'Got it. Your sheet for {upload_date.strftime("%d %b %Y")} is queued for review.',
+    })
+
+
+@require_app_access('inventory')
+@require_POST
+def admin_generate_upload_token(request, center_id):
+    """Generate or rotate the per-center supervisor upload token. Admin only."""
+    center = get_object_or_404(Center, id=center_id)
+    token_obj = CenterUploadToken.generate_for(center)
+    upload_url = request.build_absolute_uri(
+        reverse('supervisor_upload_page', kwargs={'token': token_obj.token})
+    )
+    return JsonResponse({
+        'ok': True,
+        'token': token_obj.token,
+        'url': upload_url,
+        'is_active': token_obj.is_active,
+        'rotated_at': token_obj.rotated_at.isoformat() if token_obj.rotated_at else None,
+        'created_at': token_obj.created_at.isoformat(),
+    })
+
+
+@require_app_access('inventory')
+@require_POST
+def admin_disable_upload_token(request, center_id):
+    """Disable the per-center supervisor upload token. Admin only."""
+    center = get_object_or_404(Center, id=center_id)
+    try:
+        token_obj = CenterUploadToken.objects.get(center=center)
+    except CenterUploadToken.DoesNotExist:
+        return JsonResponse({'error': 'No upload link exists for this center.'}, status=404)
+    token_obj.is_active = False
+    token_obj.save(update_fields=['is_active'])
+    return JsonResponse({'ok': True, 'is_active': False})
 # Dynamic in-app Daily Report View (PR #6)
 # =================================================================
 

@@ -266,4 +266,111 @@
         if(window.ManageCentersApp) window.ManageCentersApp.init();
     }
 </script>
+
+<!-- Supervisor upload links section (PR #2) -->
+<div style="margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e0e0e0;">
+    <h3 style="margin: 0 0 8px; font-size: 16px;">Supervisor upload links</h3>
+    <p style="margin: 0 0 16px; font-size: 13px; color: #555;">Each center can have a private link that supervisors use to upload stock sheets from their phone. The OCR/review flow stays unchanged — supervisor uploads land in the same queue as admin uploads.</p>
+    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+            <tr style="background: #ffffff; text-align: left;">
+                <th style="padding: 8px 10px; border-bottom: 1px solid #e0e0e0;">Center</th>
+                <th style="padding: 8px 10px; border-bottom: 1px solid #e0e0e0;">Status</th>
+                <th style="padding: 8px 10px; border-bottom: 1px solid #e0e0e0;">Last activity</th>
+                <th style="padding: 8px 10px; border-bottom: 1px solid #e0e0e0; text-align: right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for center in centers %}
+            <tr id="upload-row-{{ center.id }}" style="background: #ffffff;">
+                <td style="padding: 10px; border-bottom: 1px solid #f0f0f0;">{{ center.name }}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #f0f0f0;">
+                    {% if center.upload_token %}
+                        {% if center.upload_token.is_active %}
+                            <span style="color: #1a5d2f; font-weight: 600;">Active</span>
+                        {% else %}
+                            <span style="color: #8a1a14;">Disabled</span>
+                        {% endif %}
+                    {% else %}
+                        <span style="color: #888;">Not generated</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 10px; border-bottom: 1px solid #f0f0f0; color: #555;">
+                    {% if center.upload_token.last_used_at %}
+                        {{ center.upload_token.last_used_at|date:"j M Y, H:i" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td style="padding: 10px; border-bottom: 1px solid #f0f0f0; text-align: right;">
+                    <button type="button"
+                            data-generate-url="{% url 'admin_generate_upload_token' center_id=center.id %}"
+                            onclick="generateUploadLink(this, {{ center.id }})"
+                            style="padding: 6px 12px; font-size: 12px; background: #2c5282; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-right: 6px;">
+                        {% if center.upload_token %}Rotate{% else %}Generate{% endif %}
+                    </button>
+                    {% if center.upload_token and center.upload_token.is_active %}
+                    <button type="button"
+                            data-disable-url="{% url 'admin_disable_upload_token' center_id=center.id %}"
+                            onclick="disableUploadLink(this, {{ center.id }})"
+                            style="padding: 6px 12px; font-size: 12px; background: #fff; color: #8a1a14; border: 1px solid #d9534f; border-radius: 4px; cursor: pointer;">
+                        Disable
+                    </button>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function getCsrf() {
+    const el = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (el) return el.value;
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+}
+async function generateUploadLink(btn, centerId) {
+    const url = btn.dataset.generateUrl;
+    btn.disabled = true;
+    const origText = btn.textContent;
+    btn.textContent = 'Working...';
+    try {
+        const res = await fetch(url, { method: 'POST', headers: { 'X-CSRFToken': getCsrf() }, credentials: 'same-origin' });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+            try { await navigator.clipboard.writeText(data.url); } catch (e) {}
+            window.prompt('Upload link generated (copied to clipboard). Share this URL with the supervisor:', data.url);
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to generate link.'));
+            btn.disabled = false;
+            btn.textContent = origText;
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = origText;
+    }
+}
+async function disableUploadLink(btn, centerId) {
+    if (!confirm('Disable this upload link? Supervisors using the old URL will see a 404. You can re-generate later.')) return;
+    const url = btn.dataset.disableUrl;
+    btn.disabled = true;
+    try {
+        const res = await fetch(url, { method: 'POST', headers: { 'X-CSRFToken': getCsrf() }, credentials: 'same-origin' });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed.'));
+            btn.disabled = false;
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+        btn.disabled = false;
+    }
+}
+</script>
 {% endblock %}
