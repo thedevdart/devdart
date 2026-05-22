@@ -2,123 +2,411 @@
 {% load static %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto p-6 font-sans">
-
-  <div class="flex flex-wrap items-center gap-3 mb-6">
-    <h1 class="text-2xl font-black text-slate-800 dark:text-white">Daily Report</h1>
-    <div class="ml-auto flex items-center gap-2">
-      {% if prev_date %}
-        <a href="?date={{ prev_date|date:'Y-m-d' }}" class="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200">← Prev</a>
-      {% else %}
-        <span class="px-3 py-2 text-slate-400 text-sm">← Prev</span>
-      {% endif %}
-      <input type="date" value="{{ date_str }}" id="dateInput" class="px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-200">
-      {% if next_date %}
-        <a href="?date={{ next_date|date:'Y-m-d' }}" class="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200">Next →</a>
-      {% else %}
-        <span class="px-3 py-2 text-slate-400 text-sm">Next →</span>
-      {% endif %}
-    </div>
-  </div>
-
-  <div class="flex items-center gap-2 mb-6">
-    <span class="text-sm font-semibold text-slate-600 dark:text-slate-400">Filter:</span>
-    <button data-filter="ALL" class="filter-pill active px-4 py-1.5 rounded-full text-sm font-semibold bg-blue-600 text-white transition-colors">All centers</button>
-    <button data-filter="HD" class="filter-pill px-4 py-1.5 rounded-full text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors">HD only</button>
-    <button data-filter="LD" class="filter-pill px-4 py-1.5 rounded-full text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors">LD only</button>
-  </div>
-
-  <div class="text-center mb-6">
-    <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ date|date:"l, j F Y" }}</h2>
-  </div>
-
-  <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 mb-6 overflow-hidden">
-    <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-      <h3 class="font-bold text-slate-800 dark:text-slate-200">Center-wise stock</h3>
-    </div>
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 dark:bg-slate-800/50">
-          <tr>
-            <th class="px-4 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Center</th>
-            <th class="px-4 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Category</th>
-            <th class="px-4 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Raw Material</th>
-            <th class="px-4 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Finished Goods</th>
-            <th class="px-4 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in center_rows %}
-            <tr data-category="{{ row.category|default:'ALL' }}" class="center-row border-t border-slate-100 dark:border-slate-800">
-              <td class="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">{{ row.name }}</td>
-              <td class="px-4 py-2">
-                <span class="px-2 py-0.5 text-xs rounded-full {% if row.category == 'HD' %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300{% elif row.category == 'LD' %}bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300{% else %}bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300{% endif %}">{{ row.category|default:'-' }}</span>
-              </td>
-              <td class="px-4 py-2 text-right tabular-nums">{{ row.rm|default:'0' }}</td>
-              <td class="px-4 py-2 text-right tabular-nums">{{ row.fg|default:'0' }}</td>
-              <td class="px-4 py-2 text-right tabular-nums font-semibold">{{ row.total|default:'0' }}</td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="3" class="px-4 py-8 text-center text-slate-500 dark:text-slate-400">No center data uploaded for {{ date|date:"j M Y" }}.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-    <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-      <h3 class="font-bold text-slate-800 dark:text-slate-200">Item-wise totals</h3>
-    </div>
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 dark:bg-slate-800/50">
-          <tr>
-            <th class="px-4 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Item</th>
-            <th class="px-4 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Category</th>
-            <th class="px-4 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in item_rows %}
-            <tr class="border-t border-slate-100 dark:border-slate-800">
-              <td class="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">{{ item.name }}</td>
-              <td class="px-4 py-2"><span class="px-2 py-0.5 text-xs rounded-full {% if item.category == 'Raw Material' %}bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300{% elif item.category == 'Finished Goods' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300{% else %}bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300{% endif %}">{{ item.category|default:'-' }}</span></td>
-              <td class="px-4 py-2 text-right tabular-nums font-semibold">{{ item.total|default:'0' }}</td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="3" class="px-4 py-8 text-center text-slate-500 dark:text-slate-400">No item totals available for {{ date|date:"j M Y" }}.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
+<style>
+    [x-cloak] { display: none !important; }
+    .active-item { background-color: rgba(255, 137, 101, 0.1); border-left: 3px solid var(--color-primary, #FF8965); }
+    .dark .active-item { background-color: rgba(255, 137, 101, 0.1); border-left: 3px solid var(--color-primary, #FF8965); }
+    .inactive-item { border-left: 3px solid transparent; }
+</style>
 
 <script>
-(function() {
-  const dateInput = document.getElementById('dateInput');
-  if (dateInput) {
-    dateInput.addEventListener('change', () => {
-      window.location.search = '?date=' + dateInput.value;
+    window.REPORT_DATA = {
+        grand_rm: {{ grand_rm|default:0 }},
+        grand_fg: {{ grand_fg|default:0 }},
+        centers: [
+            {% for c in centers %}
+            {
+                name: "{{ c.obj.name|escapejs|upper }}",
+                category: "{{ c.obj.category|default:''|escapejs }}",
+                is_carried_over: {% if c.is_carried_over %}true{% else %}false{% endif %},
+                copied_from_date: "{{ c.copied_from_date|default:''|escapejs }}"
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        summaries: [
+            {% for s in summaries %}
+            {
+                rm_total: {{ s.rm|default:0 }},
+                fg_total: {{ s.fg|default:0 }},
+                total: {{ s.total|default:0 }}
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        detailed_rows: [
+            {% for row in detailed_rows %}
+            {
+                name: "{{ row.item.name|escapejs|upper }}",
+                category: "{{ row.category|default:''|escapejs|upper }}",
+                cols: [
+                    {% for col in row.cols %}{{ col.clo|default:0 }}{% if not forloop.last %},{% endif %}{% endfor %}
+                ]
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ]
+    };
+
+    function reportApp() {
+        const data = window.REPORT_DATA;
+        const centersData = data.centers.map((c, index) => {
+            const summary = data.summaries[index] || { rm_total: 0, fg_total: 0, total: 0 };
+            return {
+                id: c.name, name: c.name, category: c.category,
+                is_carried_over: c.is_carried_over, copied_from_date: c.copied_from_date,
+                rm_total: summary.rm_total, fg_total: summary.fg_total, total: summary.total,
+                raw: [], finish: []
+            };
+        });
+
+        const rawItems = data.detailed_rows.map((row, idx) => {
+            const itemObj = { id: 'item-'+idx, name: row.name, category: row.category, total: 0, centers: [] };
+            row.cols.forEach((qty, colIdx) => {
+                if (qty > 0 && centersData[colIdx]) {
+                    itemObj.centers.push({ name: centersData[colIdx].name, category: centersData[colIdx].category, qty: qty });
+                }
+            });
+            return itemObj;
+        });
+
+        rawItems.forEach(item => {
+            let sum = 0;
+            item.centers.forEach(c => sum += c.qty);
+            item.total = sum;
+            const isRaw = item.category.includes('RAW');
+            item.centers.forEach(c => {
+                let centerObj = centersData.find(x => x.name === c.name);
+                if (centerObj) {
+                    if(isRaw) centerObj.raw.push({ name: item.name, qty: c.qty });
+                    else centerObj.finish.push({ name: item.name, qty: c.qty });
+                }
+            });
+        });
+
+        return {
+            viewMode: 'center', activeFilter: 'ALL', search: '', selected: null,
+            centerList: centersData, itemList: rawItems,
+            get filteredList() {
+                const source = this.viewMode === 'center' ? this.centerList : this.itemList;
+                const searchUpper = this.search.toUpperCase();
+                return source.filter(i => {
+                    const matchesSearch = !this.search || i.name.includes(searchUpper);
+                    const matchesFilter = this.viewMode !== 'center' || this.activeFilter === 'ALL' || i.category === this.activeFilter;
+                    return matchesSearch && matchesFilter;
+                });
+            },
+            get dynamicRM() { return this.viewMode === 'item' ? data.grand_rm : this.filteredList.reduce((sum, item) => sum + (item.rm_total || 0), 0); },
+            get dynamicFG() { return this.viewMode === 'item' ? data.grand_fg : this.filteredList.reduce((sum, item) => sum + (item.fg_total || 0), 0); },
+            get dynamicTotal() { return this.dynamicRM + this.dynamicFG; },
+            switchMode(mode) { this.viewMode = mode; this.selected = null; this.search = ''; },
+            selectItem(item) { this.selected = item; }
+        };
+    }
+</script>
+
+<div x-data="reportApp()" class="flex flex-col-reverse md:flex-row h-full w-full bg-white dark:bg-[#0a0f18] rounded-md shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden" style="min-height: calc(100vh - 6rem);">
+    
+    <div class="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#0a0f18] relative z-0 order-2 md:order-1">
+        
+        <div class="hidden md:flex bg-slate-50 dark:bg-[#05080f] border-b border-slate-200 dark:border-slate-800 px-6 py-4 justify-between items-center shadow-sm z-10 shrink-0">
+            <div class="flex items-center gap-2">
+                {% if prev_date %}
+                    <a href="?date={{ prev_date|date:'Y-m-d' }}" class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors bg-white dark:bg-[#0a0f18] px-3 py-2 rounded-sm border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95">
+                        <i class="fa-solid fa-arrow-left"></i> Prev Day
+                    </a>
+                {% endif %}
+                {% if next_date %}
+                    <a href="?date={{ next_date|date:'Y-m-d' }}" class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors bg-white dark:bg-[#0a0f18] px-3 py-2 rounded-sm border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95">
+                        Next Day <i class="fa-solid fa-arrow-right"></i>
+                    </a>
+                {% endif %}
+                
+                <form action="{% url 'download_daily_report' date_str %}" method="POST" class="inline ml-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="export_type" value="closing">
+                    <button type="submit" class="flex items-center gap-2 text-[10px] font-black text-brand dark:text-accent uppercase tracking-widest transition-colors bg-accent/10 hover:bg-accent/20 px-3 py-2 rounded-sm shadow-sm border border-accent/20 active:scale-95">
+                        <i class="fa-solid fa-file-excel"></i> Export Matrix
+                    </button>
+                </form>
+            </div>
+
+            <div class="flex gap-8">
+                <div class="flex flex-col text-right">
+                    <span class="text-[9px] font-black text-primary uppercase tracking-widest mb-0.5">Raw Material</span>
+                    <span class="text-xl font-black font-mono text-slate-800 dark:text-white leading-none" x-text="dynamicRM"></span>
+                </div>
+                <div class="flex flex-col text-right border-l border-slate-200 dark:border-slate-800 pl-6">
+                    <span class="text-[9px] font-black text-brand dark:text-accent uppercase tracking-widest mb-0.5">Finished Goods</span>
+                    <span class="text-xl font-black font-mono text-slate-800 dark:text-white leading-none" x-text="dynamicFG"></span>
+                </div>
+                <div class="flex flex-col text-right border-l border-slate-200 dark:border-slate-800 pl-6">
+                    <span class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none mb-0.5">
+                        <span x-show="activeFilter !== 'ALL'" x-text="activeFilter + ' '"></span>Total Stock
+                    </span>
+                    <span class="text-xl font-black font-mono text-slate-900 dark:text-white leading-none" x-text="dynamicTotal"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="md:hidden flex flex-col w-full shrink-0 shadow-sm z-10 border-b border-slate-200 dark:border-slate-800 bg-[#05080f]">
+            <div class="bg-slate-50 dark:bg-[#05080f] px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
+                <div class="w-1/2 flex justify-start">
+                    {% if prev_date %}
+                        <a href="?date={{ prev_date|date:'Y-m-d' }}" class="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500 bg-white dark:bg-[#0a0f18] px-2.5 py-1.5 rounded-sm shadow-sm border border-slate-200 dark:border-slate-700 hover:text-primary">
+                            <i class="fa-solid fa-arrow-left"></i> Prev
+                        </a>
+                    {% endif %}
+                </div>
+                <div class="w-1/2 flex justify-end">
+                    {% if next_date %}
+                        <a href="?date={{ next_date|date:'Y-m-d' }}" class="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500 bg-white dark:bg-[#0a0f18] px-2.5 py-1.5 rounded-sm shadow-sm border border-slate-200 dark:border-slate-700 hover:text-primary">
+                            Next <i class="fa-solid fa-arrow-right"></i>
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-800 bg-white dark:bg-[#0a0f18]">
+                <div class="p-3 text-center bg-primary/5 relative">
+                    <div class="text-[9px] font-black text-primary uppercase tracking-widest">Raw Mat</div>
+                    <div class="text-lg font-black text-slate-800 dark:text-white font-mono mt-0.5 leading-none" x-text="dynamicRM"></div>
+                </div>
+                <div class="p-3 text-center bg-accent/5 relative">
+                    <div class="text-[9px] font-black text-brand dark:text-accent uppercase tracking-widest">Finished</div>
+                    <div class="text-lg font-black text-slate-800 dark:text-white font-mono mt-0.5 leading-none" x-text="dynamicFG"></div>
+                </div>
+                <div class="p-3 text-center bg-slate-50 dark:bg-[#05080f] relative">
+                    <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest"><span x-show="activeFilter !== 'ALL'" x-text="activeFilter + ' '"></span>Total</div>
+                    <div class="text-lg font-black text-slate-900 dark:text-white font-mono mt-0.5 leading-none" x-text="dynamicTotal"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
+            <div x-show="selected" x-transition:enter="transition ease-out duration-200" x-cloak>
+                
+                <div class="bg-slate-50 dark:bg-[#05080f] rounded-md shadow-sm border border-slate-200 dark:border-slate-800 p-6 mb-6 flex justify-between items-center relative overflow-hidden transition-colors duration-300">
+                    <div class="absolute left-0 top-0 bottom-0 w-1.5" :class="viewMode === 'center' ? 'bg-primary' : 'bg-slate-700 dark:bg-slate-500'"></div>
+                    <div class="min-w-0 pr-4 pl-2">
+                        <span class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5 mb-1" x-text="viewMode === 'center' ? 'Center Profile' : 'Item Overview'"></span>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <h2 class="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase font-heading" x-text="selected ? selected.name : ''"></h2>
+                            
+                            <template x-if="viewMode === 'center' && selected && selected.category === 'HD'">
+                                <span class="px-2 py-0.5 rounded-sm text-[10px] font-black uppercase tracking-widest bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 shadow-sm shrink-0">HD</span>
+                            </template>
+                            <template x-if="viewMode === 'center' && selected && selected.category === 'LD'">
+                                <span class="px-2 py-0.5 rounded-sm text-[10px] font-black uppercase tracking-widest bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 shadow-sm shrink-0">LD</span>
+                            </template>
+                            <template x-if="viewMode === 'center' && selected && selected.is_carried_over">
+                                <span class="px-2 py-0.5 rounded-sm text-[10px] font-black uppercase tracking-widest bg-accent/10 text-brand dark:text-accent border border-accent/20 shadow-sm flex items-center gap-1 shrink-0">
+                                    <i class="fa-solid fa-copy"></i> FROM <span x-text="selected.copied_from_date"></span>
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <span class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-1">Total Qty</span>
+                        <span class="text-3xl md:text-4xl font-mono font-black text-primary block leading-none" x-text="selected ? selected.total : 0"></span>
+                    </div>
+                </div>
+
+                <template x-if="viewMode === 'center' && selected">
+                    <div x-data="{ openRM: true, openFG: true }">
+                        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+                            
+                            <div class="bg-white dark:bg-[#0a0f18] rounded-md shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+                                <div @click="openRM = !openRM" class="bg-slate-50 dark:bg-[#05080f] px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center cursor-pointer transition-colors">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-sm bg-primary/10 flex items-center justify-center text-primary"><i class="fa-solid fa-layer-group text-sm"></i></div>
+                                        <span class="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest">Raw Materials</span>
+                                    </div>
+                                    <div class="flex items-center gap-4">
+                                        <span class="font-mono font-black text-primary text-lg" x-text="selected.rm_total"></span>
+                                        <i class="fa-solid fa-chevron-down text-slate-400 transition-transform duration-300 text-[10px]" :class="openRM ? 'rotate-180' : ''"></i>
+                                    </div>
+                                </div>
+                                <div x-show="openRM" x-collapse>
+                                    <div class="max-h-[55vh] overflow-y-auto custom-scrollbar">
+                                        <table class="w-full text-sm">
+                                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                                <template x-for="item in selected.raw" :key="item.name">
+                                                    <tr class="hover:bg-primary/5 transition-colors group">
+                                                        <td class="px-5 py-3 text-slate-700 dark:text-slate-300 font-bold uppercase text-[11px] tracking-widest" x-text="item.name"></td>
+                                                        <td class="px-5 py-3 text-right font-mono font-black text-slate-800 dark:text-slate-200 text-sm" x-text="item.qty"></td>
+                                                    </tr>
+                                                </template>
+                                                <tr x-show="selected.raw.length === 0"><td colspan="2" class="p-6 text-center text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-widest">No Raw Materials reported.</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white dark:bg-[#0a0f18] rounded-md shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+                                <div @click="openFG = !openFG" class="bg-slate-50 dark:bg-[#05080f] px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center cursor-pointer transition-colors">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-sm bg-accent/10 flex items-center justify-center text-brand dark:text-accent"><i class="fa-solid fa-box-open text-sm"></i></div>
+                                        <span class="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest">Finished Goods</span>
+                                    </div>
+                                    <div class="flex items-center gap-4">
+                                        <span class="font-mono font-black text-brand dark:text-accent text-lg" x-text="selected.fg_total"></span>
+                                        <i class="fa-solid fa-chevron-down text-slate-400 transition-transform duration-300 text-[10px]" :class="openFG ? 'rotate-180' : ''"></i>
+                                    </div>
+                                </div>
+                                <div x-show="openFG" x-collapse>
+                                    <div class="max-h-[55vh] overflow-y-auto custom-scrollbar">
+                                        <table class="w-full text-sm">
+                                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                                <template x-for="item in selected.finish" :key="item.name">
+                                                    <tr class="hover:bg-accent/5 transition-colors group">
+                                                        <td class="px-5 py-3 text-slate-700 dark:text-slate-300 font-bold uppercase text-[11px] tracking-widest" x-text="item.name"></td>
+                                                        <td class="px-5 py-3 text-right font-mono font-black text-slate-800 dark:text-slate-200 text-sm" x-text="item.qty"></td>
+                                                    </tr>
+                                                </template>
+                                                <tr x-show="selected.finish.length === 0"><td colspan="2" class="p-6 text-center text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-widest">No Finished Goods reported.</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <template x-if="viewMode === 'item' && selected">
+                    <div class="bg-white dark:bg-[#0a0f18] rounded-md shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden max-w-4xl">
+                        <div class="bg-slate-50 dark:bg-[#05080f] px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center z-10 sticky top-0">
+                            <span class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Holding Center</span>
+                            <span class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Quantity On Hand</span>
+                        </div>
+                        <div class="overflow-y-auto max-h-[60vh] custom-scrollbar">
+                            <table class="w-full text-sm">
+                                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                    <template x-for="c in selected.centers" :key="c.name">
+                                        <tr class="hover:bg-primary/5 transition-colors group">
+                                            <td class="px-6 py-4 font-black text-slate-700 dark:text-slate-300 flex items-center gap-3">
+                                                <div class="w-1.5 h-1.5 rounded-full bg-primary"></div> 
+                                                <div class="flex items-center gap-2">
+                                                    <span class="uppercase tracking-widest text-[11px]" x-text="c.name"></span>
+                                                    <template x-if="c.category === 'HD'"><span class="px-1.5 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 shrink-0">HD</span></template>
+                                                    <template x-if="c.category === 'LD'"><span class="px-1.5 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 shrink-0">LD</span></template>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 text-right font-mono font-black text-slate-700 dark:text-slate-200 group-hover:text-primary text-lg transition-colors" x-text="c.qty"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <div x-show="!selected" class="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 pb-20">
+                <div class="w-16 h-16 bg-slate-50 dark:bg-[#05080f] rounded-md flex items-center justify-center shadow-inner border border-slate-200 dark:border-slate-800 mb-4 text-slate-300 dark:text-slate-600"><i class="fa-solid fa-chart-pie text-2xl"></i></div>
+                <h3 class="text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">Ready to Analyze</h3>
+                <p class="text-[10px] font-bold mt-1 uppercase tracking-widest">Select a center or item from the sidebar.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="w-full md:w-80 bg-slate-50 dark:bg-[#05080f] border-b md:border-b-0 md:border-l border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 z-10 order-1 md:order-2">
+        
+        <div class="p-4 md:p-6 bg-black text-white relative overflow-hidden shrink-0">
+            <div class="flex items-start justify-between relative z-10 mb-4">
+                <div>
+                    <h1 class="font-black text-lg md:text-xl leading-tight tracking-tight font-heading uppercase">Report Index</h1>
+                    <p class="text-[9px] text-primary uppercase tracking-widest font-black mt-1">Interactive Navigator</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <form action="{% url 'download_daily_report' date_str %}" method="POST" class="inline md:hidden">
+                        {% csrf_token %}
+                        <input type="hidden" name="export_type" value="closing">
+                        <button type="submit" class="w-8 h-8 rounded-sm bg-accent/20 hover:bg-accent/40 text-accent transition-colors flex items-center justify-center backdrop-blur-sm shadow-sm">
+                            <i class="fa-solid fa-file-excel text-xs"></i>
+                        </button>
+                    </form>
+                    <div class="relative flex items-center group bg-white/10 border border-white/20 rounded-sm px-3 py-1.5 shadow-sm hover:border-primary transition-colors cursor-pointer w-max" onclick="document.getElementById('reportDatePicker')._flatpickr.open()">
+                        <i class="fa-solid fa-calendar-day text-primary mr-2 group-hover:scale-110 transition-transform text-[10px]"></i>
+                        <input type="text" id="reportDatePicker" value="{{ date|date:'Y-m-d' }}" class="bg-transparent border-none outline-none text-[10px] text-white font-black uppercase tracking-widest cursor-pointer w-[76px] p-0 focus:ring-0 text-center placeholder-white/50" placeholder="DATE">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex bg-white/5 p-1 rounded-sm border border-white/10 shadow-inner relative z-10">
+                <button @click="switchMode('center')" :class="viewMode === 'center' ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:text-white'" class="flex-1 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-sm transition-all duration-200 flex items-center justify-center">
+                    <i class="fa-solid fa-building mr-1.5"></i> By Center
+                </button>
+                <button @click="switchMode('item')" :class="viewMode === 'item' ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:text-white'" class="flex-1 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-sm transition-all duration-200 flex items-center justify-center">
+                    <i class="fa-solid fa-box mr-1.5"></i> By Item
+                </button>
+            </div>
+
+            <div x-show="viewMode === 'center'" x-collapse class="mt-2 flex bg-white/5 p-1 rounded-sm border border-white/10 shadow-inner relative z-10">
+                <button @click="activeFilter = 'ALL'" :class="activeFilter === 'ALL' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-white'" class="flex-1 py-1 text-[9px] font-black tracking-widest uppercase rounded-sm transition-all">All</button>
+                <button @click="activeFilter = 'HD'" :class="activeFilter === 'HD' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-white'" class="flex-1 py-1 text-[9px] font-black tracking-widest uppercase rounded-sm transition-all border-l border-white/10">HD</button>
+                <button @click="activeFilter = 'LD'" :class="activeFilter === 'LD' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-white'" class="flex-1 py-1 text-[9px] font-black tracking-widest uppercase rounded-sm transition-all border-l border-white/10">LD</button>
+            </div>
+        </div>
+
+        <div class="p-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0a0f18] shrink-0 transition-colors duration-300">
+            <div class="relative group">
+                <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors text-xs"></i>
+                <input type="text" x-model="search" placeholder="SEARCH INDEX..." class="w-full pl-8 pr-3 py-2 text-[10px] font-black uppercase tracking-widest bg-slate-50 dark:bg-[#05080f] border border-slate-200 dark:border-slate-700 rounded-sm focus:border-primary outline-none transition-all shadow-inner text-slate-800 dark:text-slate-200">
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto custom-scrollbar md:max-h-[calc(100vh-18rem)] max-h-[30vh]">
+            <template x-for="item in filteredList" :key="item.id">
+                <div @click="selectItem(item)" :class="selected && selected.id === item.id ? 'active-item' : 'inactive-item hover:bg-white dark:hover:bg-[#0a0f18]'" class="px-5 py-4 border-b border-slate-100 dark:border-slate-800/50 cursor-pointer transition-colors duration-150 group">
+                    <div class="flex justify-between items-start gap-2">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-black text-[11px] truncate uppercase tracking-widest text-slate-800 dark:text-slate-200 group-hover:text-primary transition-colors" :class="selected && selected.id === item.id ? 'text-primary' : ''" x-text="item.name"></h3>
+                                <template x-if="viewMode === 'center' && item.category === 'HD'"><span class="px-1.5 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 shrink-0">HD</span></template>
+                                <template x-if="viewMode === 'center' && item.category === 'LD'"><span class="px-1.5 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 shrink-0">LD</span></template>
+                            </div>
+                            <template x-if="viewMode === 'center' && item.is_carried_over">
+                                    <div class="mt-1 text-[9px] font-bold text-accent uppercase tracking-widest"><i class="fa-solid fa-copy mr-1"></i>From <span x-text="item.copied_from_date"></span></div>
+                            </template>
+
+                            <template x-if="viewMode === 'center'">
+                                <div class="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest mt-2">
+                                    <span class="text-primary bg-primary/10 px-1.5 py-0.5 rounded-sm border border-primary/20">RM: <span x-text="item.rm_total"></span></span>
+                                    <span class="text-brand dark:text-accent bg-accent/10 px-1.5 py-0.5 rounded-sm border border-accent/20">FG: <span x-text="item.fg_total"></span></span>
+                                </div>
+                            </template>
+                            <template x-if="viewMode === 'item'">
+                                <p class="text-[9px] text-slate-500 dark:text-slate-400 mt-1 uppercase font-bold tracking-widest" x-text="'Found in ' + item.centers.length + ' Locs'"></p>
+                            </template>
+                        </div>
+                        <div class="flex-shrink-0"><span class="font-mono text-[11px] font-black px-2 py-1 rounded-sm border transition-colors shadow-sm" :class="selected && selected.id === item.id ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-[#05080f] text-slate-500 border-slate-200 dark:border-slate-700 group-hover:border-primary group-hover:text-primary'" x-text="item.total"></span></div>
+                    </div>
+                </div>
+            </template>
+            <div x-show="filteredList.length === 0" class="p-8 text-center text-slate-400 dark:text-slate-500">
+                <p class="text-[10px] font-black uppercase tracking-widest">No results found.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Alpine.js is required for this specific reactive view -->
+<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="{% static 'inventory/js/daily_report_view.js' %}?v=1.2"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        flatpickr("#reportDatePicker", {
+            dateFormat: "Y-m-d",
+            defaultDate: "{{ date|date:'Y-m-d' }}",
+            onChange: function(selectedDates, dateStr) {
+                if(dateStr) {
+                    window.location.href = '?date=' + dateStr;
+                }
+            }
+        });
     });
-  }
-  const pills = document.querySelectorAll('.filter-pill');
-  pills.forEach(pill => {
-    pill.addEventListener('click', () => {
-      const filter = pill.dataset.filter;
-      pills.forEach(p => {
-        p.classList.remove('active', 'bg-blue-600', 'text-white');
-        p.classList.add('bg-slate-100', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-200');
-      });
-      pill.classList.add('active', 'bg-blue-600', 'text-white');
-      pill.classList.remove('bg-slate-100', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-200');
-      document.querySelectorAll('.center-row').forEach(row => {
-        const cat = row.dataset.category;
-        row.style.display = (filter === 'ALL' || cat === filter) ? '' : 'none';
-      });
-    });
-  });
-})();
 </script>
 {% endblock %}
