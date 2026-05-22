@@ -46,31 +46,10 @@ def dashboard(request):
 def api_check_uploads(request):
     date_str = request.GET.get('date')
     if not date_str:
-        return JsonResponse({'ids': [], 'supervisor_ids': [], 'supervisor_sheets': {}})
-    # Centers where admin has saved StockEntry rows for this date (=> green)
-    completed_ids = list(
-        StockEntry.objects.filter(sheet__date=date_str)
-        .values_list('sheet__center_id', flat=True)
-        .distinct()
-    )
-    # Centers with supervisor-uploaded sheet but no entries yet (=> icon, awaiting admin analysis)
-    supervisor_sheets_qs = StockSheet.objects.filter(
-        date=date_str,
-        uploaded_by_source='supervisor',
-    ).exclude(center_id__in=completed_ids)
-    supervisor_ids = [s.center_id for s in supervisor_sheets_qs]
-    supervisor_sheets = {
-        s.center_id: {
-            'image_url': s.image.url if s.image else None,
-            'uploaded_at': s.uploaded_at.isoformat() if s.uploaded_at else None,
-        }
-        for s in supervisor_sheets_qs
-    }
-    return JsonResponse({
-        'ids': completed_ids,
-        'supervisor_ids': supervisor_ids,
-        'supervisor_sheets': supervisor_sheets,
-    })
+        return JsonResponse({'ids': []})
+    
+    completed_ids = StockSheet.objects.filter(date=date_str).values_list('center_id', flat=True)
+    return JsonResponse({'ids': list(completed_ids)})
 
 @require_app_access('inventory')
 @require_POST
@@ -2639,35 +2618,14 @@ def daily_report_view(request):
     prev_d = StockSheet.objects.filter(date__lt=date_obj).order_by('-date').values_list('date', flat=True).first()
     next_d = StockSheet.objects.filter(date__gt=date_obj).order_by('date').values_list('date', flat=True).first()
 
-    center_rows = []
-    for c, s in zip(data.get('centers', []), data.get('summaries', [])):
-        center_obj = c.get('obj')
-        center_rows.append({
-            'name': getattr(center_obj, 'name', '-') if center_obj else '-',
-            'category': getattr(center_obj, 'category', '') if center_obj else '',
-            'rm': s.get('rm', 0) or 0,
-            'fg': s.get('fg', 0) or 0,
-            'total': s.get('total', 0) or 0,
-            'is_carried_over': c.get('is_carried_over', False),
-        })
-
-    item_rows = []
-    for row in data.get('detailed_rows', []):
-        cols = row.get('cols', []) or []
-        total = sum(v.get('clo', 0) for v in cols if isinstance(v, dict))
-        item_rows.append({
-            'name': str(row.get('item', '')),
-            'category': row.get('category', ''),
-            'total': total,
-        })
+    # Fetch Classifications to power the dynamic JavaScript HD/LD filters
+    classifications = CenterClassification.objects.all().order_by('name')
 
     return render(request, 'inventory/daily_report_view.html', {
         'date': date_obj,
         'date_str': date_str,
         'prev_date': prev_d,
         'next_date': next_d,
-        'center_rows': center_rows,
-        'item_rows': item_rows,
-        'grand_rm': data.get('grand_rm', 0),
-        'grand_fg': data.get('grand_fg', 0),
+        'classifications': classifications,
+        **data
     })
