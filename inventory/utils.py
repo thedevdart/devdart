@@ -1,4 +1,4 @@
-import os
+    import os
 import requests
 import json
 
@@ -11,7 +11,7 @@ def analyze_with_gemini(mime_type, base64_data, center_name="Center", allowed_na
     if not api_key:
         return {"error": "Server Error: API Key missing configuration."}
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={api_key}"
     
     prompt = f"""
     Analyze this inventory document for {center_name} as a STRICT TRANSCRIBER.
