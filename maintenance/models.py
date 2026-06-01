@@ -41,6 +41,9 @@ class MaintenanceLog(models.Model):
     remarks = models.TextField(blank=True)
     
     def save(self, *args, **kwargs):
+        if self.document_image:
+            from core.utils import compress_file_if_needed
+            compress_file_if_needed(self.document_image)
         # Automatically update the parent Asset's next_due_date when a log is saved
         if self.new_due_date:
             self.asset.next_due_date = self.new_due_date

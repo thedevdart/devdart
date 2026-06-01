@@ -284,5 +284,5 @@
     </div>
 </div>
 
-<script src="{% static 'inventory/js/report_detail.js' %}?v=1.1"></script>
+<script src="{% static 'inventory/js/report_detail.js' %}?v={{ request.resolver_match.url_name }}{% now 'U' %}"></script>
 {% endblock %}

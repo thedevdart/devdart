@@ -271,17 +271,17 @@ window.ReportDetailApp = {
 
         rows.forEach(row => {
             const cat = row.dataset.cat;
-            const op = parseFloat(row.querySelector('.val-op').value) || 0;
-            const inw = parseFloat(row.querySelector('.val-inw').value) || 0;
-            const disp = parseFloat(row.querySelector('.val-disp').value) || 0;
-            const clo = parseFloat(row.querySelector('.val-clo').value) || 0;
+            const op = parseFloat(String(row.querySelector('.val-op').value).replace(/,/g, '')) || 0;
+            const inw = parseFloat(String(row.querySelector('.val-inw').value).replace(/,/g, '')) || 0;
+            const disp = parseFloat(String(row.querySelector('.val-disp').value).replace(/,/g, '')) || 0;
+            const clo = parseFloat(String(row.querySelector('.val-clo').value).replace(/,/g, '')) || 0;
 
-            const calc = op + inw - disp;
+            const calc = Math.round((op + inw - disp) * 1000) / 1000;
             const tallyIcon = row.querySelector('.tally-cell i');
-            if (calc === clo && (op > 0 || inw > 0 || disp > 0 || clo > 0)) {
+            if (Math.trunc(calc) === Math.trunc(clo) && (op > 0 || inw > 0 || disp > 0 || clo > 0)) {
                 tallyIcon.className = "fa-solid fa-circle-check text-accent drop-shadow-sm";
                 tallyIcon.title = "Perfectly Tallied";
-            } else if (calc !== clo && (op > 0 || inw > 0 || disp > 0 || clo > 0)) {
+            } else if (Math.trunc(calc) !== Math.trunc(clo) && (op > 0 || inw > 0 || disp > 0 || clo > 0)) {
                 tallyIcon.className = "fa-solid fa-circle-xmark text-red-500 cursor-help";
                 tallyIcon.title = `Expected: ${calc}`;
             } else {

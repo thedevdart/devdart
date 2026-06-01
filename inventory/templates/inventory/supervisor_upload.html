@@ -1,100 +1,115 @@
-{% load static %}<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
+  
+    
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Upload Stock Sheet — {{ center.name }}</title>
-    <style>
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f7; color: #1d1d1f; min-height: 100vh; -webkit-font-smoothing: antialiased; }
-        .wrap { max-width: 480px; margin: 0 auto; background: #ffffff; min-height: 100vh; display: flex; flex-direction: column; }
-        header { padding: 20px; border-bottom: 1px solid #e5e5e7; display: flex; justify-content: space-between; align-items: center; }
-        header .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #86868b; margin: 0 0 4px; }
-        header h1 { font-size: 18px; font-weight: 600; margin: 0; }
-        header .avatar { width: 40px; height: 40px; border-radius: 50%; background: #e7f1ff; color: #0040a0; font-weight: 600; font-size: 14px; display: flex; align-items: center; justify-content: center; }
-        main { padding: 20px; flex: 1; }
-        .field { margin-bottom: 20px; }
-        .field label { display: block; font-size: 12px; color: #6e6e73; margin-bottom: 6px; letter-spacing: 0.3px; }
-        input[type=date] { width: 100%; padding: 14px; font-size: 16px; border: 1px solid #d2d2d7; border-radius: 8px; background: #ffffff; font-family: inherit; color: #1d1d1f; }
-        input[type=date]:focus { outline: 2px solid #0040a0; outline-offset: -1px; }
-        .file-card { position: relative; border: 1.5px dashed #c7c7cc; border-radius: 10px; padding: 28px 16px; text-align: center; background: #fafafa; transition: border-color .15s, background .15s; }
-        .file-card.has-file { border-style: solid; border-color: #34c759; background: #f0fff5; }
-        .file-card input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-        .file-card .icon { font-size: 32px; line-height: 1; }
-        .file-card .primary { font-size: 15px; font-weight: 600; margin-top: 8px; }
-        .file-card .secondary { font-size: 12px; color: #86868b; margin-top: 2px; }
-        .file-card .filename { font-size: 14px; font-weight: 500; margin-top: 8px; word-break: break-all; }
-        button[type=submit] { width: 100%; padding: 16px; font-size: 16px; font-weight: 600; color: #ffffff; background: #2c5282; border: none; border-radius: 10px; cursor: pointer; font-family: inherit; transition: background .15s, opacity .15s; }
-        button[type=submit]:hover { background: #1a365d; }
-        button[type=submit]:disabled { opacity: 0.55; cursor: wait; }
-        .msg { margin-top: 16px; padding: 12px 14px; border-radius: 8px; font-size: 14px; line-height: 1.4; }
-        .msg.ok { background: #e6f7eb; color: #1a5d2f; border: 1px solid #b6e0c2; }
-        .msg.error { background: #fdecea; color: #8a1a14; border: 1px solid #f5b6b3; }
-        .recent { margin-top: 26px; padding-top: 18px; border-top: 1px solid #e5e5e7; }
-        .recent h2 { font-size: 12px; color: #6e6e73; letter-spacing: 0.5px; margin: 0 0 10px; text-transform: uppercase; font-weight: 600; }
-        .recent .row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f2; font-size: 14px; }
-        .recent .row:last-child { border-bottom: none; }
-        .pill { font-size: 11px; padding: 3px 10px; border-radius: 999px; font-weight: 600; letter-spacing: 0.3px; }
-        .pill.review { background: #fff3d6; color: #7a4f00; }
-        .pill.done { background: #e6f7eb; color: #1a5d2f; }
-        .empty { font-size: 13px; color: #86868b; padding: 8px 0; }
-        footer { padding: 16px 20px; font-size: 11px; color: #86868b; border-top: 1px solid #e5e5e7; text-align: center; }
-    </style>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class', 
+            theme: { 
+                extend: {
+                    colors: {
+                        brand: '#0a0f18',
+                        primary: '#FF8965',
+                        accent: '#96CD1E'
+                    }
+                } 
+            } 
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" href="/favicon.png" type="image/png">
 </head>
-<body>
-<div class="wrap">
-    <header>
+<body class="bg-slate-50 dark:bg-brand text-slate-800 dark:text-slate-200 antialiased font-sans min-h-screen md:py-10 md:px-6 flex justify-center transition-colors duration-300">
+
+<div class="w-full bg-white dark:bg-[#05080f] min-h-screen md:min-h-[700px] md:max-w-5xl md:h-auto flex flex-col md:rounded-md md:shadow-2xl md:border border-slate-200 dark:border-slate-800 overflow-hidden relative">
+    
+    <header class="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-brand shrink-0">
         <div>
-            <p class="label">Lucro stock upload</p>
-            <h1>{{ center.name }}</h1>
+            <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Lucro Stock Upload</p>
+            <h1 class="text-2xl md:text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight">{{ center.name }}</h1>
         </div>
-        <div class="avatar" aria-hidden="true">{{ center.name|slice:":2"|upper }}</div>
+        <div class="w-10 h-10 md:w-12 md:h-12 rounded-sm bg-primary/10 text-primary font-black flex items-center justify-center border border-primary/20 shadow-sm text-sm md:text-base shrink-0" aria-hidden="true">
+            {{ center.name|slice:":2"|upper }}
+        </div>
     </header>
 
-    <main>
-        <form id="upload-form" method="post" enctype="multipart/form-data" action="{% url 'supervisor_upload_submit' token=token %}">
-            {% csrf_token %}
+    <div class="flex-1 flex flex-col md:flex-row">
+        
+        <main class="p-6 md:p-10 flex-1 flex flex-col">
+            <form id="upload-form" method="post" enctype="multipart/form-data" action="{% url 'supervisor_upload_submit' token=token %}" class="flex flex-col gap-6 md:gap-8 h-full">
+                {% csrf_token %}
 
-            <div class="field">
-                <label for="date">Date of this sheet</label>
-                <input type="date" id="date" name="date"
-                       value="{{ today|date:'Y-m-d' }}"
-                       min="{{ allowed_dates|last|date:'Y-m-d' }}"
-                       max="{{ today|date:'Y-m-d' }}" required>
-            </div>
+                <div class="space-y-2">
+                    <label for="date" class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 block">1. Date of this sheet</label>
+                    <div class="relative flex items-center">
+                        <i class="fa-regular fa-calendar absolute left-4 top-1/2 -translate-y-1/2 text-primary z-10 pointer-events-none"></i>
+                        <input type="date" id="date" name="date"
+                               value="{{ default_date|date:'Y-m-d' }}"
+                               min="{{ allowed_dates|last|date:'Y-m-d' }}"
+                               max="{{ today|date:'Y-m-d' }}" 
+                               class="w-full pl-11 pr-4 py-3.5 md:py-4 border border-slate-300 dark:border-slate-700 rounded-sm bg-slate-50 dark:bg-brand text-slate-900 dark:text-white text-[11px] md:text-xs font-black uppercase tracking-widest hover:border-primary focus:border-primary outline-none transition-all shadow-inner" required>
+                    </div>
+                </div>
 
-            <div class="field">
-                <label for="sheet-input">Stock sheet</label>
-                <div class="file-card" id="file-card">
-                    <div class="icon" id="file-icon">📷</div>
-                    <div class="primary" id="file-primary">Take photo of sheet</div>
-                    <div class="secondary" id="file-secondary">or tap to choose photo / PDF (max {{ max_file_mb }} MB)</div>
-                    <input type="file" id="sheet-input" name="sheet" accept="image/jpeg,image/png,image/heic,image/heif,application/pdf" capture="environment" required>
+                <div class="space-y-2 flex-1 flex flex-col">
+                    <label for="sheet-input" class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 block">2. Stock sheet</label>
+                    <label class="relative border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-md p-8 md:p-12 flex-1 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 dark:bg-brand dark:hover:bg-slate-900/50 transition-all cursor-pointer group active:scale-[0.98] min-h-[200px]" id="file-card">
+                        <input type="file" id="sheet-input" name="sheet" accept="image/jpeg,image/png,image/heic,image/heif,application/pdf" capture="environment" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" required>
+                        
+                        <i id="file-icon" class="fa-solid fa-camera text-4xl md:text-5xl text-slate-300 dark:text-slate-600 group-hover:text-primary transition-colors mb-4"></i>
+                        <span id="file-primary" class="text-[11px] md:text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest text-center">Take photo of sheet</span>
+                        <span id="file-secondary" class="text-[9px] md:text-[10px] font-bold text-slate-500 mt-1.5 uppercase tracking-widest text-center">or tap to choose photo / PDF (max {{ max_file_mb }} MB)</span>
+                    </label>
+                </div>
+
+                <button type="submit" id="submit-btn" class="w-full py-4 md:py-5 mt-2 bg-primary hover:bg-primary/90 text-white rounded-sm font-black uppercase tracking-widest text-[11px] md:text-xs transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-2 border border-transparent disabled:opacity-50 disabled:cursor-not-allowed shrink-0">
+                    Submit sheet for review
+                </button>
+                <div id="msg" style="display:none" role="alert"></div>
+            </form>
+        </main>
+
+        <aside class="w-full md:w-80 lg:w-96 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 bg-white md:bg-slate-50 dark:bg-[#05080f] md:dark:bg-[#0a0f18] flex flex-col shrink-0 transition-colors">
+            <div class="p-6 md:p-8 flex-1 flex flex-col">
+                <h2 class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-6 md:mb-8 border-b border-slate-100 dark:border-slate-800 pb-2">Recent uploads</h2>
+                
+                <div class="flex flex-col gap-3 md:gap-4 overflow-y-auto">
+                    {% for sheet in recent %}
+                        <div class="flex justify-between items-center p-3.5 md:p-4 rounded-md border border-slate-200 dark:border-slate-700/50 bg-slate-50 md:bg-white dark:bg-[#05080f] shadow-sm transition-colors hover:border-primary/50">
+                            <span class="text-[10px] md:text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">{{ sheet.date|date:"j M Y" }}</span>
+                            {% if sheet.entries.exists %}
+                                <span class="px-2 py-1 text-[8px] md:text-[9px] font-black uppercase tracking-widest rounded-sm bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50 shadow-sm flex items-center gap-1">
+                                    <i class="fa-solid fa-check"></i> Reviewed
+                                </span>
+                            {% else %}
+                                <span class="px-2 py-1 text-[8px] md:text-[9px] font-black uppercase tracking-widest rounded-sm bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50 shadow-sm flex items-center gap-1">
+                                    <i class="fa-solid fa-clock"></i> Awaiting
+                                </span>
+                            {% endif %}
+                        </div>
+                    {% empty %}
+                        <div class="flex flex-col items-center justify-center py-10 opacity-50">
+                            <i class="fa-solid fa-folder-open text-3xl mb-3 text-slate-400"></i>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">No sheets uploaded yet.</p>
+                        </div>
+                    {% endfor %}
                 </div>
             </div>
+        </aside>
 
-            <button type="submit" id="submit-btn">Submit sheet for review</button>
-            <div id="msg" class="msg" style="display:none" role="alert"></div>
-        </form>
+    </div>
 
-        <section class="recent">
-            <h2>Recent uploads</h2>
-            {% for sheet in recent %}
-                <div class="row">
-                    <span>{{ sheet.date|date:"j M Y" }}</span>
-                    {% if sheet.entries.exists %}
-                        <span class="pill done">Reviewed</span>
-                    {% else %}
-                        <span class="pill review">Awaiting review</span>
-                    {% endif %}
-                </div>
-            {% empty %}
-                <p class="empty">No sheets uploaded yet for {{ center.name }}.</p>
-            {% endfor %}
-        </section>
-    </main>
-
-    <footer>This link is private to {{ center.name }}. Don't share it publicly.</footer>
+    <footer class="p-4 md:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-brand text-center shrink-0">
+        <p class="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-lock text-slate-300 dark:text-slate-600"></i> Private link to {{ center.name }}. Do not share.
+        </p>
+    </footer>
 </div>
 
 <script>
@@ -111,31 +126,43 @@
     fileInput.addEventListener('change', function() {
         if (fileInput.files && fileInput.files[0]) {
             const f = fileInput.files[0];
-            fileCard.classList.add('has-file');
-            icon.textContent = '📄';
+            
+            // Safely swap styling without destroying structural classes like md:p-12
+            fileCard.classList.remove('border-dashed', 'border-slate-300', 'dark:border-slate-700', 'bg-slate-50', 'hover:bg-slate-100', 'dark:bg-brand', 'dark:hover:bg-slate-900/50');
+            fileCard.classList.add('border-solid', 'border-primary', 'bg-primary/5', 'dark:bg-primary/10');
+            
+            icon.className = 'fa-solid fa-file-circle-check text-4xl md:text-5xl text-primary mb-3 transition-colors';
             primary.textContent = f.name;
-            primary.className = 'filename';
-            secondary.textContent = (f.size / 1024 / 1024).toFixed(1) + ' MB · tap to change';
+            primary.className = 'text-[11px] md:text-xs font-black text-primary uppercase tracking-widest text-center truncate w-full px-2';
+            secondary.textContent = (f.size / 1024 / 1024).toFixed(1) + ' MB · TAP TO CHANGE';
+            secondary.className = 'text-[9px] md:text-[10px] font-bold text-slate-500 mt-1.5 uppercase tracking-widest text-center';
         }
     });
 
     function showMsg(text, isError) {
         msg.textContent = text;
-        msg.className = 'msg ' + (isError ? 'error' : 'ok');
-        msg.style.display = 'block';
+        if (isError) {
+            msg.className = 'mt-4 px-4 py-3 rounded-md text-[11px] md:text-xs font-black uppercase tracking-widest border bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/50 shadow-sm flex items-center gap-2 before:content-["\\f071"] before:font-["Font_Awesome_6_Free"] before:font-black';
+        } else {
+            msg.className = 'mt-4 px-4 py-3 rounded-md text-[11px] md:text-xs font-black uppercase tracking-widest border bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/50 shadow-sm flex items-center gap-2 before:content-["\\f058"] before:font-["Font_Awesome_6_Free"] before:font-black';
+        }
+        msg.style.display = 'flex';
     }
 
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
         msg.style.display = 'none';
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Uploading...';
+        submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Uploading...';
+        
         const fd = new FormData(form);
         try {
             const res = await fetch(form.action, { method: 'POST', body: fd, credentials: 'same-origin' });
             const data = await res.json().catch(() => ({}));
+            
             if (res.ok && data.ok) {
                 showMsg(data.message || 'Uploaded.', false);
+                submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> Done';
                 setTimeout(() => location.reload(), 1800);
             } else {
                 showMsg(data.error || 'Upload failed. Please try again.', true);

@@ -659,13 +659,13 @@ window.calculateTotals = function calculateTotals() {
         const cat = row.getAttribute('data-cat');
         if (row.classList.contains('unresolved-row')) unresolvedCount++;
 
-        const op = parseFloat(row.querySelector('.val-opening').value) || 0;
-        const inw = parseFloat(row.querySelector('.val-inward').value) || 0;
-        const disp = parseFloat(row.querySelector('.val-dispatch').value) || 0;
-        const clo = parseFloat(row.querySelector('.val-closing').value) || 0;
-        const carried = parseFloat(row.querySelector('.val-carried').innerText) || 0;
+        const op = parseFloat(String(row.querySelector('.val-opening').value).replace(/,/g, '')) || 0;
+        const inw = parseFloat(String(row.querySelector('.val-inward').value).replace(/,/g, '')) || 0;
+        const disp = parseFloat(String(row.querySelector('.val-dispatch').value).replace(/,/g, '')) || 0;
+        const clo = parseFloat(String(row.querySelector('.val-closing').value).replace(/,/g, '')) || 0;
+        const carried = parseFloat(String(row.querySelector('.val-carried').innerText).replace(/,/g, '')) || 0;
 
-        const calc = op + inw - disp;
+        const calc = Math.round((op + inw - disp) * 1000) / 1000;
         const calcEl = row.querySelector('.val-calc');
         if (calcEl && calcEl.innerText != calc) calcEl.innerText = calc;
 
@@ -680,10 +680,10 @@ window.calculateTotals = function calculateTotals() {
         }
 
         if (tallyCloIcon) {
-            if (calc === clo && (op>0 || inw>0 || disp>0 || clo>0)) {
+            if (Math.trunc(calc) === Math.trunc(clo) && (op>0 || inw>0 || disp>0 || clo>0)) {
                 if (tallyCloIcon.className !== "fa-solid fa-circle-check text-emerald-500 text-lg drop-shadow-sm") 
                     tallyCloIcon.className = "fa-solid fa-circle-check text-emerald-500 text-lg drop-shadow-sm";
-            } else if (calc !== clo && (op>0 || inw>0 || disp>0 || clo>0)) {
+            } else if (Math.trunc(calc) !== Math.trunc(clo) && (op>0 || inw>0 || disp>0 || clo>0)) {
                 if (tallyCloIcon.className !== "fa-solid fa-circle-xmark text-red-500 text-lg cursor-help") 
                     tallyCloIcon.className = "fa-solid fa-circle-xmark text-red-500 text-lg cursor-help";
                 cloHasError = true;
@@ -704,10 +704,10 @@ window.calculateTotals = function calculateTotals() {
         }
 
         if (tallyOpIcon) {
-            if (op === carried && (op>0 || carried>0)) {
+            if (Math.trunc(op) === Math.trunc(carried) && (op>0 || carried>0)) {
                 if (tallyOpIcon.className !== "fa-solid fa-circle-check text-emerald-500 text-lg drop-shadow-sm") 
                     tallyOpIcon.className = "fa-solid fa-circle-check text-emerald-500 text-lg drop-shadow-sm";
-            } else if (op !== carried && (op>0 || carried>0)) {
+            } else if (Math.trunc(op) !== Math.trunc(carried) && (op>0 || carried>0)) {
                 if (tallyOpIcon.className !== "fa-solid fa-circle-xmark text-red-500 text-lg cursor-help") 
                     tallyOpIcon.className = "fa-solid fa-circle-xmark text-red-500 text-lg cursor-help";
                 opHasError = true;
@@ -801,11 +801,11 @@ window.applyBulkCategory = function(value) {
 
 function cleanEmptyRows() {
     document.querySelectorAll('#tableBody tr').forEach(row => {
-        const op = parseFloat(row.querySelector('.val-opening').value) || 0;
-        const inw = parseFloat(row.querySelector('.val-inward').value) || 0;
-        const disp = parseFloat(row.querySelector('.val-dispatch').value) || 0;
-        const clo = parseFloat(row.querySelector('.val-closing').value) || 0;
-        const carried = parseFloat(row.querySelector('.val-carried').innerText) || 0;
+        const op = parseFloat(String(row.querySelector('.val-opening').value).replace(/,/g, '')) || 0;
+        const inw = parseFloat(String(row.querySelector('.val-inward').value).replace(/,/g, '')) || 0;
+        const disp = parseFloat(String(row.querySelector('.val-dispatch').value).replace(/,/g, '')) || 0;
+        const clo = parseFloat(String(row.querySelector('.val-closing').value).replace(/,/g, '')) || 0;
+        const carried = parseFloat(String(row.querySelector('.val-carried').innerText).replace(/,/g, '')) || 0;
         
         // EXPLICITLY PROTECT ROWS THAT ARE SAVING AN ALIAS SO IT DOESN'T GET WIPED
         const savedAttr = row.getAttribute('data-save-alias');
@@ -1086,7 +1086,7 @@ function updateComplicationIndicator() {
 function scrollToFirstUnresolved() {
     const firstRedRow = document.querySelector('.unresolved-row');
     if (firstRedRow) {
-        const alpineContainer = document.querySelector('[x-data="dashboardManager()"]');
+        const alpineContainer = document.getElementById('ledger-app-container');
         if (alpineContainer && typeof Alpine !== 'undefined') {
             Alpine.$data(alpineContainer).activeTab = 'closing';
             window.currentActiveTab = 'closing';
@@ -1132,7 +1132,6 @@ async function checkUploadStatus() {
         window.supervisorSheets = data.supervisor_sheets || {};
         window.dispatchEvent(new CustomEvent('uploads-checked'));
         
-        // Backup for native select (if hidden one is ever used)
         document.querySelectorAll('#centerSelect option').forEach(opt => {
             opt.style.backgroundColor = ""; opt.style.color = "";
             if (window.uploadedCenterIds.includes(parseInt(opt.value))) {
@@ -1142,6 +1141,63 @@ async function checkUploadStatus() {
         });
     } catch(e) {
         console.error("Check Uploads Error: ", e);
+    }
+}
+
+async function maybeLoadSupervisorSheet(centerId) {
+    if (!centerId) return;
+    const sheetData = window.supervisorSheets && window.supervisorSheets[centerId];
+    if (sheetData && sheetData.image_url) {
+        try {
+            const resp = await fetch(sheetData.image_url);
+            const blob = await resp.blob();
+            const file = new File([blob], `supervisor_${centerId}.jpg`, { type: blob.type });
+            await processFile(file);
+            
+            const badge = document.getElementById('supervisorBadge');
+            const timeSpan = badge.querySelector('span[data-supervisor-time]');
+            if(sheetData.uploaded_at) {
+                const date = new Date(sheetData.uploaded_at);
+                const timeStr = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                timeSpan.textContent = ` • ${timeStr}`;
+            } else {
+                timeSpan.textContent = '';
+            }
+            
+            // Check for review flag
+            if (sheetData.is_review) {
+                badge.classList.remove('bg-amber-50', 'dark:bg-amber-900/20', 'text-amber-800', 'dark:text-amber-300', 'border-amber-200', 'dark:border-amber-800');
+                badge.classList.add('bg-rose-50', 'dark:bg-rose-900/20', 'text-rose-800', 'dark:text-rose-300', 'border-rose-200', 'dark:border-rose-800');
+                badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i><span>Review Document: Supervisor Re-upload<span data-supervisor-time>${timeSpan.textContent}</span></span>`;
+            } else {
+                badge.classList.remove('bg-rose-50', 'dark:bg-rose-900/20', 'text-rose-800', 'dark:text-rose-300', 'border-rose-200', 'dark:border-rose-800');
+                badge.classList.add('bg-amber-50', 'dark:bg-amber-900/20', 'text-amber-800', 'dark:text-amber-300', 'border-amber-200', 'dark:border-amber-800');
+                badge.innerHTML = `<i class="fa-solid fa-image"></i><span>Uploaded by Supervisor<span data-supervisor-time>${timeSpan.textContent}</span></span>`;
+            }
+
+            badge.classList.remove('hidden');
+
+            const alpineContainer = document.getElementById('ledger-app-container');
+            if (alpineContainer && typeof Alpine !== 'undefined') {
+                const alpineData = Alpine.$data(alpineContainer);
+                alpineData.activeTab = 'closing';
+                window.currentActiveTab = 'closing';
+                // Trigger auto-analysis if it's not a review
+                if (!sheetData.is_review) {
+                    runAnalysis();
+                } else {
+                   // Calculate totals to display the already saved numbers
+                   setTimeout(() => {
+                       window.calculateTotals();
+                   }, 500);
+                }
+            }
+            showToast("Supervisor Sheet", "Loaded file from supervisor.", "info");
+        } catch (e) {
+            console.error("Failed to fetch supervisor sheet:", e);
+        }
+    } else {
+        document.getElementById('supervisorBadge').classList.add('hidden');
     }
 }
 
@@ -1446,7 +1502,7 @@ async function runAnalysis() {
 
         status.innerHTML = '<i class="fa-solid fa-check text-emerald-500"></i> Done';
         
-        const alpineContainer = document.querySelector('[x-data="dashboardManager()"]');
+        const alpineContainer = document.getElementById('ledger-app-container');
         if (alpineContainer && typeof Alpine !== 'undefined') {
             Alpine.$data(alpineContainer).activeTab = 'closing';
             window.currentActiveTab = 'closing';
@@ -1561,11 +1617,11 @@ async function executeSave() {
         const cat = row.getAttribute('data-cat');
         const nameCell = row.querySelector('.item-name-cell');
         
-        const op = parseFloat(row.querySelector('.val-opening').value) || 0;
-        const inw = parseFloat(row.querySelector('.val-inward').value) || 0;
-        const disp = parseFloat(row.querySelector('.val-dispatch').value) || 0;
-        const clo = parseFloat(row.querySelector('.val-closing').value) || 0;
-        const carried = parseFloat(row.querySelector('.val-carried').innerText) || 0;
+        const op = parseFloat(String(row.querySelector('.val-opening').value).replace(/,/g, '')) || 0;
+        const inw = parseFloat(String(row.querySelector('.val-inward').value).replace(/,/g, '')) || 0;
+        const disp = parseFloat(String(row.querySelector('.val-dispatch').value).replace(/,/g, '')) || 0;
+        const clo = parseFloat(String(row.querySelector('.val-closing').value).replace(/,/g, '')) || 0;
+        const carried = parseFloat(String(row.querySelector('.val-carried').innerText).replace(/,/g, '')) || 0;
 
         const savedAttr = row.getAttribute('data-save-alias');
         const cb = row.querySelector('.save-alias-cb');
@@ -1579,7 +1635,8 @@ async function executeSave() {
         
         if (!row.classList.contains('unresolved-row')) {
             totalLogged++;
-            if ((op + inw - disp !== clo) || (op !== carried)) {
+            const calc = Math.round((op + inw - disp) * 1000) / 1000;
+            if ((Math.trunc(calc) !== Math.trunc(clo)) || (Math.trunc(op) !== Math.trunc(carried))) {
                 calcErrors++;
             }
         }
@@ -1664,5 +1721,131 @@ async function executeSave() {
             setTimeout(() => overlay.classList.add('hidden'), 300);
         }
         showToast("Network Error", e.message, "error"); 
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const loadSheetId = params.get('load_sheet_id');
+    
+    if (loadSheetId) {
+        loadSheetData(loadSheetId);
+        
+        // Remove the parameter from the URL to keep it clean (optional, but good UX)
+        const url = new URL(window.location);
+        url.searchParams.delete('load_sheet_id');
+        window.history.replaceState({}, document.title, url);
+    }
+});
+
+async function loadSheetData(sheetId) {
+    showToast("Loading", "Fetching sheet data for review...", "info");
+    try {
+        const response = await fetch(`/inventory/api/raw-sheet/${sheetId}/`);
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            // 1. Set Date
+            const dateInput = document.getElementById('dateInput');
+            if (dateInput && dateInput._flatpickr) {
+                dateInput._flatpickr.setDate(data.date);
+            } else if (dateInput) {
+                dateInput.value = data.date;
+            }
+
+            // 2. Set Center via Alpine OR Fallback
+            const centerSelect = document.getElementById('centerSelect');
+            if (centerSelect) {
+                centerSelect.value = data.center_id;
+                // Dispatch change event to update the Alpine component visually if bound
+                centerSelect.dispatchEvent(new Event('change'));
+                
+                // Update Alpine component text manually
+                const alpineComponent = centerSelect.closest('[x-data]');
+                if (alpineComponent && typeof Alpine !== 'undefined') {
+                    const alpineData = Alpine.$data(alpineComponent);
+                    if (alpineData && alpineData.centers) {
+                        const centerData = alpineData.centers.find(c => c.id == data.center_id);
+                        if (centerData) {
+                            alpineData.centerSearch = centerData.name;
+                        }
+                    }
+                }
+            }
+            
+            // Re-trigger loadCenterMasters so currentCenterMasters is populated
+            if (typeof loadCenterMasters === 'function') {
+                loadCenterMasters();
+            } else if (typeof window.loadCenterMasters === 'function') {
+                window.loadCenterMasters();
+            }
+
+            // 3. Load Image
+            if (data.image_url) {
+                const previewImg = document.getElementById('previewImg');
+                const placeholder = document.getElementById('placeholder-content');
+                const previewContainer = document.getElementById('previewContainer');
+                const resultsPanel = document.getElementById('results');
+                
+                if (previewImg && placeholder) {
+                    previewImg.src = data.image_url;
+                    previewImg.classList.remove('hidden');
+                    placeholder.classList.add('hidden');
+                    if (previewContainer) {
+                        previewContainer.classList.add('items-center', 'justify-center');
+                        previewContainer.classList.remove('overflow-y-auto', 'block');
+                    }
+                    if (resultsPanel) {
+                        resultsPanel.classList.remove('hidden');
+                    }
+                }
+                currentBase64 = "PRELOADED"; // bypass empty check
+            }
+
+            // 4. Parse Extracted Data
+            if (data.raw_extracted_data) {
+                const status = document.getElementById('status');
+                if (status) {
+                    status.classList.remove('hidden');
+                    status.innerHTML = '<i class="fa-solid fa-check text-emerald-500"></i> Loaded from Review';
+                }
+                
+                try {
+                    let extractedText = "";
+                    const candidates = data.raw_extracted_data.candidates;
+                    if (candidates && candidates.length > 0) {
+                        extractedText = candidates[0].content.parts[0].text;
+                    }
+                    
+                    if (extractedText) {
+                        extractedText = extractedText.replace(/DATE_FOUND: .*/g, "").replace(/```csv/g, "").replace(/```/g, "").trim();
+                        
+                        // Parse the CSV
+                        parseCSV(extractedText);
+                        
+                        showToast("Loaded", "Sheet data populated for review.", "success");
+                        
+                        // Activate Alpine tab properly
+                        const alpineContainer = document.getElementById('ledger-app-container');
+                        if (alpineContainer && typeof Alpine !== 'undefined') {
+                            Alpine.$data(alpineContainer).activeTab = 'closing';
+                            window.currentActiveTab = 'closing';
+                        }
+                    } else {
+                        showToast("Image Loaded", "No raw extraction text found.", "warning");
+                    }
+                } catch (e) {
+                    console.error("Error parsing raw_extracted_data", e);
+                    showToast("Error", "Could not parse extracted data.", "error");
+                }
+            } else {
+                showToast("Image Loaded", "No raw data found, please run extraction.", "warning");
+            }
+        } else {
+            showToast("Error", data.message || "Could not fetch sheet data", "error");
+        }
+    } catch (error) {
+        console.error("Error loading sheet:", error);
+        showToast("Error", "Failed to fetch sheet data.", "error");
     }
 }

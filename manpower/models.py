@@ -46,6 +46,12 @@ class DailyRecord(models.Model):
     class Meta:
         unique_together = ('center', 'date')
 
+    def save(self, *args, **kwargs):
+        if self.file:
+            from core.utils import compress_file_if_needed
+            compress_file_if_needed(self.file)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.center.name} - {self.date}"
 
