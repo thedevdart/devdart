@@ -23,5 +23,11 @@ class VisitLog(models.Model):
     entry_time = models.DateTimeField(default=timezone.now)
     exit_time = models.DateTimeField(blank=True, null=True)
 
+    def save(self, *args, **kwargs):
+        if self.photo:
+            from core.utils import compress_file_if_needed
+            compress_file_if_needed(self.photo)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.person_name} - {self.status}"

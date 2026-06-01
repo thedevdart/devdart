@@ -60,9 +60,7 @@
 .nav-item:hover i { color: #FF8965; } /* Rose Orange Hover */
 .nav-item.active-nav i { color: #FF8965 !important; }
 
-/* WhatsApp Special Colors */
-.nav-item.whatsapp-link:hover i { color: #96CD1E; } /* Green Hover */
-.nav-item.whatsapp-link.active-nav i { color: #96CD1E !important; }
+
 
 /* The custom offset floating bar for the active link */
 .active-nav::before {

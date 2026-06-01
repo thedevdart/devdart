@@ -149,5 +149,11 @@ class ReportVersion(models.Model):
     class Meta:
         ordering = ['-version_number'] # Newest versions first
 
+    def save(self, *args, **kwargs):
+        if self.scanned_file:
+            from core.utils import compress_file_if_needed
+            compress_file_if_needed(self.scanned_file)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.daily_report} - v{self.version_number}"

@@ -467,5 +467,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'inventory/js/index.js' %}"></script>
+<script src="{% static 'inventory/js/index.js' %}?v={{ request.resolver_match.url_name }}{% now 'U' %}"></script>
 {% endblock %}

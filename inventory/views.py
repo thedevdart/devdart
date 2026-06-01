@@ -8,6 +8,7 @@ import calendar
 import tempfile
 import random
 from django.core.mail import send_mail
+from decimal import Decimal, InvalidOperation
 from django.contrib.auth import update_session_auth_hash
 from io import BytesIO, StringIO
 from datetime import date, timedelta, datetime
@@ -29,7 +30,8 @@ from openpyxl.utils import get_column_letter
 # === HUB SECURITY IMPORTS ===
 from hub.decorators import require_app_access, require_feature_access
 
-from .models import Center, StockSheet, MasterItem, ItemAlias, StockEntry, CenterMasterItem, CenterItemAlias, WhatsAppReceipt, PrintTemplate, PrintTemplateItem, CenterClassification, TargetReportConfig, TargetReportColumn
+from django.contrib.auth.models import User
+from .models import Center, StockSheet, MasterItem, ItemAlias, StockEntry, CenterMasterItem, CenterItemAlias, PrintTemplate, PrintTemplateItem, CenterClassification, TargetReportConfig, TargetReportColumn, Notification
 from .utils import analyze_with_gemini
 
 # ==========================================
@@ -56,16 +58,25 @@ def api_check_uploads(request):
     # Centers with supervisor-uploaded sheet but no entries yet (=> icon, awaiting admin analysis)
     supervisor_sheets_qs = StockSheet.objects.filter(
         date=date_str,
-        uploaded_by_source='supervisor',
-    ).exclude(center_id__in=completed_ids)
-    supervisor_ids = [s.center_id for s in supervisor_sheets_qs]
-    supervisor_sheets = {
-        s.center_id: {
-            'image_url': s.image.url if s.image else None,
+    ).filter(Q(uploaded_by_source='supervisor') | Q(review_image__isnull=False)).exclude(
+        center_id__in=completed_ids, review_image__isnull=True
+    )
+    
+    supervisor_ids = []
+    supervisor_sheets = {}
+    for s in supervisor_sheets_qs:
+        if not s.entries.exists():
+            supervisor_ids.append(s.center_id)
+        
+        # Give priority to review_image if it exists
+        img_url = s.review_image.url if s.review_image else (s.image.url if s.image else None)
+        
+        supervisor_sheets[s.center_id] = {
+            'image_url': img_url,
             'uploaded_at': s.uploaded_at.isoformat() if s.uploaded_at else None,
+            'is_review': bool(s.review_image)
         }
-        for s in supervisor_sheets_qs
-    }
+
     return JsonResponse({
         'ids': completed_ids,
         'supervisor_ids': supervisor_ids,
@@ -219,6 +230,24 @@ def api_get_previous_closing(request):
         'status': 'success', 
         'balances': balances, 
         'exact_match': True
+    })
+
+@require_app_access('inventory')
+def api_get_raw_sheet(request, sheet_id):
+    """Fetches a specific StockSheet and its raw extracted data for auto-loading."""
+    sheet = get_object_or_404(StockSheet, id=sheet_id)
+    image_url = ""
+    if sheet.review_image:
+        image_url = sheet.review_image.url
+    elif sheet.image:
+        image_url = sheet.image.url
+        
+    return JsonResponse({
+        'status': 'success',
+        'center_id': sheet.center_id,
+        'date': sheet.date.isoformat(),
+        'image_url': image_url,
+        'raw_extracted_data': sheet.raw_extracted_data
     })
 
 # ==========================================
@@ -955,6 +984,9 @@ def api_analyze_sheet(request):
         if not mime or not b64_data:
             return JsonResponse({'error': 'Missing file data'}, status=400)
             
+        from core.utils import compress_base64_if_needed
+        mime, b64_data = compress_base64_if_needed(mime, b64_data)
+            
         result = analyze_with_gemini(mime, b64_data)
         
         if 'error' in result:
@@ -964,6 +996,37 @@ def api_analyze_sheet(request):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@require_app_access('inventory')
+def api_get_notifications(request):
+    """Fetch unread notifications for the logged-in user."""
+    notifs = Notification.objects.filter(user=request.user).order_by('-created_at')[:20]
+    unread_count = Notification.objects.filter(user=request.user, is_read=False).count()
+    
+    data = []
+    for n in notifs:
+        data.append({
+            'id': n.id,
+            'title': n.title,
+            'message': n.message,
+            'type': n.notif_type,
+            'is_read': n.is_read,
+            'target_id': n.target_id,
+            'created_at': n.created_at.strftime('%d %b, %H:%M')
+        })
+    return JsonResponse({'status': 'success', 'notifications': data, 'unread_count': unread_count})
+
+@require_app_access('inventory')
+@require_POST
+def api_mark_notification_read(request, notif_id):
+    """Mark a specific notification as read."""
+    try:
+        notif = Notification.objects.get(id=notif_id, user=request.user)
+        notif.is_read = True
+        notif.save(update_fields=['is_read'])
+        return JsonResponse({'status': 'success'})
+    except Notification.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Notification not found'}, status=404)
     
 # ==========================================
 # 10. NEXUS PUSH & HTML SYNC (SUPERUSER ONLY)
@@ -989,45 +1052,7 @@ def download_daily_html(request, date_str):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
 
-# ==========================================
-# 11. WHATSAPP TRACKER
-# ==========================================
 
-@require_app_access('inventory')
-def api_whatsapp_status(request):
-    date_str = request.GET.get('date')
-    if not date_str:
-        return JsonResponse({'received_ids': []})
-        
-    receipts = WhatsAppReceipt.objects.filter(date=date_str).values_list('center_id', flat=True)
-    return JsonResponse({'received_ids': list(receipts)})
-
-@require_app_access('inventory')
-@require_POST
-def api_whatsapp_toggle(request):
-    try:
-        data = json.loads(request.body)
-        center_id = data.get('center_id')
-        date_str = data.get('date')
-        
-        center = get_object_or_404(Center, id=center_id)
-        
-        receipt, created = WhatsAppReceipt.objects.get_or_create(center=center, date=date_str)
-        
-        if not created:
-            receipt.delete()
-            is_received = False
-        else:
-            is_received = True
-            
-        return JsonResponse({'status': 'success', 'is_received': is_received})
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)})
-    
-@require_app_access('inventory')
-def whatsapp_tracker(request):
-    centers = Center.objects.all().order_by('name')
-    return render(request, 'inventory/whatsapp_tracker.html', {'centers': centers})
 
 
 # ==========================================
@@ -2524,6 +2549,7 @@ def supervisor_upload_page(request, token):
     token_obj = get_object_or_404(CenterUploadToken, token=token, is_active=True)
     center = token_obj.center
     today = _tz.localdate()
+    yesterday = today - timedelta(days=1)
     allowed_dates = [today - timedelta(days=i) for i in range(ALLOWED_UPLOAD_DAYS_BACK + 1)]
 
     recent = StockSheet.objects.filter(center=center).order_by('-date')[:5]
@@ -2533,55 +2559,286 @@ def supervisor_upload_page(request, token):
         'token': token,
         'allowed_dates': allowed_dates,
         'today': today,
+        'default_date': yesterday,
         'recent': recent,
         'max_file_mb': MAX_UPLOAD_FILE_BYTES // (1024 * 1024),
     })
 
 
+def _create_admin_notifications(title, message, notif_type, target_id=None):
+    from django.contrib.auth.models import User
+    from .models import Notification
+    admins = User.objects.filter(is_superuser=True)
+    notifs = [Notification(user=admin, title=title, message=message, notif_type=notif_type, target_id=target_id) for admin in admins]
+    Notification.objects.bulk_create(notifs)
+
 @require_POST
 def supervisor_upload_submit(request, token):
     """Receive a supervisor-uploaded stock sheet. Public endpoint, token-authed."""
-    token_obj = get_object_or_404(CenterUploadToken, token=token, is_active=True)
-    center = token_obj.center
-    today = _tz.localdate()
-
-    date_str = request.POST.get('date', '').strip()
+    # --- 1. Initial Validation ---
     try:
+        token_obj = get_object_or_404(CenterUploadToken, token=token, is_active=True)
+        center = token_obj.center
+        today = _tz.localdate()
+
+        date_str = request.POST.get('date', '').strip()
+        if not date_str:
+            return JsonResponse({'error': 'Please pick a valid date.'}, status=400)
         upload_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        return JsonResponse({'error': 'Please pick a valid date.'}, status=400)
-    if upload_date > today:
-        return JsonResponse({'error': 'You cannot upload for a future date.'}, status=400)
-    if upload_date < today - timedelta(days=ALLOWED_UPLOAD_DAYS_BACK):
-        return JsonResponse({'error': f'You can only upload sheets from the last {ALLOWED_UPLOAD_DAYS_BACK} days. Contact admin for older dates.'}, status=400)
 
-    if StockSheet.objects.filter(center=center, date=upload_date).exists():
-        return JsonResponse({'error': f'A sheet for {upload_date.strftime("%d %b %Y")} has already been uploaded for {center.name}. Contact admin if you need to replace it.'}, status=409)
+        if upload_date > today:
+            return JsonResponse({'error': 'You cannot upload for a future date.'}, status=400)
+        if upload_date < today - timedelta(days=ALLOWED_UPLOAD_DAYS_BACK):
+            return JsonResponse({'error': f'You can only upload sheets from the last {ALLOWED_UPLOAD_DAYS_BACK} days. Contact admin for older dates.'}, status=400)
 
-    upload = request.FILES.get('sheet')
-    if not upload:
-        return JsonResponse({'error': 'Please choose a photo or PDF of the sheet.'}, status=400)
-    if upload.size > MAX_UPLOAD_FILE_BYTES:
-        return JsonResponse({'error': f'File is too large ({upload.size // (1024 * 1024)} MB). Max allowed is {MAX_UPLOAD_FILE_BYTES // (1024 * 1024)} MB.'}, status=400)
-    if upload.content_type not in ALLOWED_UPLOAD_MIMES:
-        return JsonResponse({'error': 'File must be a photo (JPG / PNG / HEIC) or a PDF.'}, status=400)
+        upload = request.FILES.get('sheet')
+        if not upload:
+            return JsonResponse({'error': 'Please choose a photo or PDF of the sheet.'}, status=400)
+        if upload.size > MAX_UPLOAD_FILE_BYTES:
+            return JsonResponse({'error': f'File is too large ({upload.size // (1024 * 1024)} MB). Max allowed is {MAX_UPLOAD_FILE_BYTES // (1024 * 1024)} MB.'}, status=400)
+        if upload.content_type not in ALLOWED_UPLOAD_MIMES:
+            return JsonResponse({'error': 'File must be a photo (JPG / PNG / HEIC) or a PDF.'}, status=400)
+            
+        existing_sheet = StockSheet.objects.filter(center=center, date=upload_date).first()
 
-    sheet = StockSheet.objects.create(
-        center=center,
-        date=upload_date,
-        image=upload,
-        uploaded_by_source='supervisor',
-        uploaded_by_token=token_obj,
-    )
-    token_obj.last_used_at = _tz.now()
-    token_obj.save(update_fields=['last_used_at'])
+    except (ValueError, CenterUploadToken.DoesNotExist):
+        return JsonResponse({'error': 'Invalid request. Please check the URL and form data.'}, status=400)
 
-    return JsonResponse({
-        'ok': True,
-        'date': str(upload_date),
-        'sheet_id': sheet.id,
-        'message': f'Got it. Your sheet for {upload_date.strftime("%d %b %Y")} is queued for review.',
-    })
+    # --- 2. Auto-Analysis Attempt ---
+    gemini_result = None
+    try:
+        upload.seek(0)
+        b64_data = base64.b64encode(upload.read()).decode('utf-8')
+        
+
+        center_masters = {cm.name.upper(): cm for cm in CenterMasterItem.objects.filter(center=center)}
+        center_aliases = {ca.scanned_name.upper(): ca.mapped_to for ca in CenterItemAlias.objects.filter(center=center).select_related('mapped_to')}
+        
+
+        allowed_names_str = ", ".join(list(center_masters.keys()) + list(center_aliases.keys()))
+        gemini_result = analyze_with_gemini(upload.content_type, b64_data, center.name, allowed_names_str)
+
+        if 'error' in gemini_result:
+            raise ValueError(f"AI Error: {gemini_result['error']}")
+        
+        candidates = gemini_result.get('candidates')
+        if not candidates or not isinstance(candidates, list) or not candidates[0].get('content', {}).get('parts'):
+            raise ValueError("AI returned an invalid response structure.")
+        
+        extracted_text = candidates[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+        if not extracted_text:
+            raise ValueError("AI returned an empty analysis.")
+
+        lines = extracted_text.strip().split('\n')
+        items_to_save = []
+        has_errors = False
+        error_reasons = []
+        
+        prev_date = upload_date - timedelta(days=1)
+        prev_entries = StockEntry.objects.filter(sheet__center=center, sheet__date=prev_date).select_related('master_item')
+        prev_balances = {entry.master_item.name.upper(): entry.closing_balance for entry in prev_entries}
+
+        csv_start_index = -1
+        for i, line in enumerate(lines):
+            if 'CSV_START' in line or ('Category' in line and 'Item Name' in line):
+                csv_start_index = i + 1
+                break
+        
+        if csv_start_index == -1 or csv_start_index >= len(lines):
+            has_errors = True
+            error_reasons.append("Could not find CSV_START or header line in AI output.")
+
+        if not has_errors and not lines[csv_start_index:]:
+            has_errors = True
+            error_reasons.append("No data lines found after CSV_START.")
+
+        processed_items = set()
+
+        if not has_errors:
+            for line in lines[csv_start_index:]:
+                if 'Category' in line or 'Item Name' in line:
+                    continue
+                
+                parts = [p.strip() for p in line.split(',')]
+                if len(parts) < 6: continue
+
+                try:
+                    raw_cat, raw_name, op_str, inw_str, disp_str, clo_str = parts[:6]
+                    if not raw_name: continue
+                    op, inw, disp, clo = Decimal(op_str), Decimal(inw_str), Decimal(disp_str), Decimal(clo_str)
+                except (ValueError, InvalidOperation):
+                    has_errors = True
+                    error_reasons.append(f"Failed to parse decimal values in line: {line}")
+                    break
+
+                item_name_upper = raw_name.upper()
+                center_master_item = center_masters.get(item_name_upper) or center_aliases.get(item_name_upper)
+                
+                if not center_master_item:
+                    has_errors = True
+                    error_reasons.append(f"Item not found in master/aliases: {item_name_upper}")
+                    break
+                if op + inw - disp != clo:
+                    has_errors = True
+                    error_reasons.append(f"Math check failed for {raw_name}: {op} + {inw} - {disp} != {clo}")
+                    break
+                
+                master_name_upper = center_master_item.name.upper()
+                prev_bal = prev_balances.get(master_name_upper, Decimal('0'))
+                if op != prev_bal:
+                    has_errors = True
+                    error_reasons.append(f"Opening balance mismatch for {raw_name}: expected {prev_bal}, got {op}")
+                    break
+                
+                processed_items.add(master_name_upper)
+
+                items_to_save.append({
+                    'center_master_name': center_master_item.name, 'sheet_category': center_master_item.category,
+                    'opening_balance': op, 'inward': inw, 'dispatch': disp, 'closing_balance': clo,
+                    'raw_name_scanned': raw_name,
+                })
+
+        if not has_errors:
+            # Check if any items with a previous balance > 0 were missed in the current extraction
+            for prev_name, prev_bal in prev_balances.items():
+                if prev_bal > 0 and prev_name not in processed_items:
+                    has_errors = True
+                    error_reasons.append(f"Item {prev_name} had prev balance {prev_bal} but was missing from current sheet.")
+                    break
+
+        if has_errors or not items_to_save:
+            error_msg = f"Validation failed. Reasons: {', '.join(error_reasons)}" if error_reasons else "Validation failed or no items found to save."
+            raise ValueError(error_msg)
+
+        # --- Success Case: Auto-verified ---
+        with transaction.atomic():
+            if existing_sheet:
+                if existing_sheet.entries.exists():
+                    # CASE III: Existing sheet is tallied. Save this successful upload as review image.
+                    existing_sheet.review_image = upload
+                    existing_sheet.raw_extracted_data = gemini_result
+                    existing_sheet.save()
+                    message = f'A tallied sheet already exists for {upload_date.strftime("%d %b %Y")}. Your new upload has been saved for admin review.'
+                    sheet = existing_sheet
+                    _create_admin_notifications(
+                        title=f"Review Requested: {center.name}",
+                        message=f"Duplicate sheet uploaded for {upload_date.strftime('%d %b')}.",
+                        notif_type='case3',
+                        target_id=sheet.id
+                    )
+                else:
+                    # CASE I: Success (overwrite previous untallied)
+                    existing_sheet.image = upload
+                    existing_sheet.uploaded_by_source = 'supervisor'
+                    existing_sheet.raw_extracted_data = None
+                    existing_sheet.save()
+                    existing_sheet.entries.all().delete()
+                    sheet = existing_sheet
+                    message = f'Success! Your corrected sheet for {upload_date.strftime("%d %b %Y")} was automatically verified.'
+                    _create_admin_notifications(
+                        title=f"Tallied: {center.name}",
+                        message=f"Stock sheet for {upload_date.strftime('%d %b')} was successfully verified.",
+                        notif_type='case1',
+                        target_id=sheet.id
+                    )
+            else:
+                # CASE I: Success
+                sheet = StockSheet.objects.create(
+                    center=center, date=upload_date, image=upload,
+                    uploaded_by_source='supervisor', uploaded_by_token=token_obj,
+                    raw_extracted_data=None
+                )
+                message = f'Success! Your sheet for {upload_date.strftime("%d %b %Y")} was automatically verified.'
+                _create_admin_notifications(
+                    title=f"Tallied: {center.name}",
+                    message=f"Stock sheet for {upload_date.strftime('%d %b')} was successfully verified.",
+                    notif_type='case1',
+                    target_id=sheet.id
+                )
+
+            if not existing_sheet or not existing_sheet.entries.exists():
+                item_names_to_fetch = {item['center_master_name'] for item in items_to_save}
+                global_masters = {mi.name: mi for mi in MasterItem.objects.filter(name__in=item_names_to_fetch)}
+    
+                for item_data in items_to_save:
+                    global_master = global_masters.get(item_data['center_master_name'])
+                    if not global_master:
+                        global_master, _ = MasterItem.objects.get_or_create(
+                            name=item_data['center_master_name'],
+                            defaults={'category': item_data['sheet_category']}
+                        )
+                    StockEntry.objects.create(
+                        sheet=sheet, master_item=global_master,
+                        sheet_category=item_data['sheet_category'], opening_balance=item_data['opening_balance'],
+                        inward=item_data['inward'], dispatch=item_data['dispatch'],
+                        closing_balance=item_data['closing_balance'], raw_name_scanned=item_data['raw_name_scanned']
+                    )
+        
+        token_obj.last_used_at = _tz.now()
+        token_obj.save(update_fields=['last_used_at'])
+        return JsonResponse({'ok': True, 'date': str(upload_date), 'sheet_id': sheet.id, 'message': message})
+
+    except Exception as e:
+        # --- Fallback Case: Manual Review ---
+        token_obj = get_object_or_404(CenterUploadToken, token=token, is_active=True)
+        center = token_obj.center
+        upload_date = datetime.strptime(request.POST.get('date', ''), '%Y-%m-%d').date()
+        upload = request.FILES.get('sheet')
+        
+        if upload:
+            upload.seek(0)
+        
+        with transaction.atomic():
+            if existing_sheet:
+                 if existing_sheet.entries.exists():
+                     # CASE III: Existing sheet is tallied. Save this failed upload as review image.
+                     existing_sheet.review_image = upload
+                     existing_sheet.raw_extracted_data = gemini_result
+                     existing_sheet.save()
+                     message = f'A tallied sheet already exists for {upload_date.strftime("%d %b %Y")}. Your new upload has been saved for admin review.'
+                     sheet = existing_sheet
+                     _create_admin_notifications(
+                         title=f"Review Requested: {center.name}",
+                         message=f"Duplicate sheet uploaded for {upload_date.strftime('%d %b')} with errors.",
+                         notif_type='case3',
+                         target_id=sheet.id
+                     )
+                 else:
+                     # CASE II: Previous upload also failed. Overwrite the image for admin to review.
+                     existing_sheet.image = upload
+                     existing_sheet.uploaded_by_source = 'supervisor'
+                     existing_sheet.raw_extracted_data = gemini_result
+                     existing_sheet.save()
+                     message = f'Got it. Your corrected sheet for {upload_date.strftime("%d %b %Y")} is queued for manual review.'
+                     sheet = existing_sheet
+                     _create_admin_notifications(
+                         title=f"Tally Failed: {center.name}",
+                         message=f"Stock sheet for {upload_date.strftime('%d %b')} failed auto-verification.",
+                         notif_type='case2',
+                         target_id=sheet.id
+                     )
+            else:
+                # CASE II: First time failure
+                sheet = StockSheet.objects.create(
+                    center=center, date=upload_date, image=upload,
+                    uploaded_by_source='supervisor', uploaded_by_token=token_obj,
+                    raw_extracted_data=gemini_result
+                )
+                message = f'Got it. Your sheet for {upload_date.strftime("%d %b %Y")} is queued for manual review.'
+                _create_admin_notifications(
+                    title=f"Tally Failed: {center.name}",
+                    message=f"Stock sheet for {upload_date.strftime('%d %b')} failed auto-verification.",
+                    notif_type='case2',
+                    target_id=sheet.id
+                )
+
+            token_obj.last_used_at = _tz.now()
+            token_obj.save(update_fields=['last_used_at'])
+
+        return JsonResponse({
+            'ok': True, 'date': str(upload_date), 'sheet_id': sheet.id,
+            'message': message,
+        })
 
 
 @require_app_access('inventory')

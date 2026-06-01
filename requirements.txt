@@ -8,3 +8,4 @@ openpyxl
 requests
 Pillow
 gunicorn
+pypdf==6.12.2

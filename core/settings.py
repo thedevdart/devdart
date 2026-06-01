@@ -127,6 +127,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Allow PDF Embedding
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 
+# Allow Large Base64 AJAX Uploads (20 MB)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 20971520
+
 # Auth Redirects
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/inventory/'

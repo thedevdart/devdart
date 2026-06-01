@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 # --- NEW CLASSIFICATION MODEL ---
 class CenterClassification(models.Model):
@@ -59,13 +60,19 @@ class StockSheet(models.Model):
     UPLOAD_SOURCE_CHOICES = [('admin', 'Admin'), ('supervisor', 'Supervisor')]
     uploaded_by_source = models.CharField(max_length=20, choices=UPLOAD_SOURCE_CHOICES, default='admin', db_index=True)
     uploaded_by_token = models.ForeignKey('CenterUploadToken', on_delete=models.SET_NULL, null=True, blank=True, related_name='uploaded_sheets')
+    review_image = models.FileField(upload_to='stock_sheets/reviews/%Y/%m/', null=True, blank=True)
+    raw_extracted_data = models.JSONField(null=True, blank=True)
 
     class Meta:
         unique_together = ('center', 'date')
         ordering = ['-date']
 
-    def __str__(self):
-        return f"{self.center.name} - {self.date}"
+    def save(self, *args, **kwargs):
+        from core.utils import compress_file_if_needed
+        compress_file_if_needed(self.image)
+        if self.review_image:
+            compress_file_if_needed(self.review_image)
+        super().save(*args, **kwargs)
 
 class StockEntry(models.Model):
     """
@@ -91,16 +98,24 @@ class StockEntry(models.Model):
     def __str__(self):
         return f"{self.master_item.name}: {self.closing_balance}"
     
-class WhatsAppReceipt(models.Model):
-    center = models.ForeignKey(Center, on_delete=models.CASCADE)
-    date = models.DateField()
-    received_at = models.DateTimeField(auto_now_add=True)
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='inventory_notifications')
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    notif_type = models.CharField(max_length=20, choices=[
+        ('case1', 'Success'), 
+        ('case2', 'Untallied'), 
+        ('case3', 'Review')
+    ])
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    target_id = models.IntegerField(null=True, blank=True)
 
     class Meta:
-        unique_together = ('center', 'date')
-        
+        ordering = ['-created_at']
+
     def __str__(self):
-        return f"{self.center.name} - {self.date}"
+        return f"[{self.notif_type}] {self.title}"
 
 class CenterMasterItem(models.Model):
     center = models.ForeignKey(Center, on_delete=models.CASCADE, related_name='master_items')
