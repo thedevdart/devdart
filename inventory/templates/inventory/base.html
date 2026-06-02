@@ -157,7 +157,7 @@
                 <button onclick="toggleNotifications()" class="nav-item flex items-center gap-4 w-full px-4 py-3 text-white/60 hover:text-white hover:bg-white/5 transition-colors rounded-md active:scale-95 group border border-transparent">
                     <div class="relative w-6 h-6 flex items-center justify-center shrink-0 group-hover:text-accent transition-colors">
                         <i class="fa-solid fa-bell text-lg"></i>
-                        <span id="notif-badge" class="absolute top-0 right-0 bg-[#96CD1E] w-2.5 h-2.5 rounded-full border-2 border-brand hidden"></span>
+                        <span id="notif-badge" class="absolute -top-1 -right-1 bg-[#96CD1E] text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-white dark:border-slate-900 hidden"></span>
                     </div>
                     <span class="sidebar-text text-[13px] font-semibold tracking-wide">Notifications</span>
                 </button>
@@ -185,10 +185,14 @@
         <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-[#05080f] shrink-0">
             <h3 class="font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest flex items-center gap-3 text-[11px]">
                 <i class="fa-solid fa-bell text-primary text-sm"></i> Activity Log
+                <span id="notif-count-panel" class="bg-primary/20 text-primary px-2 py-0.5 rounded-full text-[9px] hidden"></span>
             </h3>
-            <button onclick="toggleNotifications()" class="text-slate-400 hover:text-red-500 transition-colors w-8 h-8 flex items-center justify-center rounded-sm hover:bg-red-500/10 active:scale-95">
-                <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
+            <div class="flex items-center gap-4">
+                <button id="markAllReadBtn" onclick="markAllNotificationsRead()" class="hidden text-[10px] text-primary hover:underline uppercase font-bold tracking-wider">Mark all read</button>
+                <button onclick="toggleNotifications()" class="text-slate-400 hover:text-red-500 transition-colors w-8 h-8 flex items-center justify-center rounded-sm hover:bg-red-500/10 active:scale-95">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
         </div>
         <div class="flex-1 overflow-y-auto custom-scrollbar p-4 bg-slate-50/50 dark:bg-[#05080f]/50" id="notificationList">
         </div>
@@ -266,10 +270,26 @@
                 if(data.status === 'success') {
                     // Update badge
                     const badge = document.getElementById('notif-badge');
+                    const panelCount = document.getElementById('notif-count-panel');
+                    const markAllBtn = document.getElementById('markAllReadBtn');
+                    
                     if (data.unread_count > 0) {
-                        badge.classList.remove('hidden');
+                        if (badge) {
+                            badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+                            badge.classList.remove('hidden');
+                        }
+                        
+                        if (panelCount) {
+                            panelCount.textContent = data.unread_count + ' New';
+                            panelCount.classList.remove('hidden');
+                        }
+                        if (markAllBtn) {
+                            markAllBtn.classList.remove('hidden');
+                        }
                     } else {
-                        badge.classList.add('hidden');
+                        if (badge) badge.classList.add('hidden');
+                        if (panelCount) panelCount.classList.add('hidden');
+                        if (markAllBtn) markAllBtn.classList.add('hidden');
                     }
 
                     // Update list
@@ -285,6 +305,7 @@
                         let iconClass = "fa-check text-green-500 bg-green-500/10";
                         if (n.type === 'case2') iconClass = "fa-triangle-exclamation text-red-500 bg-red-500/10";
                         if (n.type === 'case3') iconClass = "fa-magnifying-glass text-orange-500 bg-orange-500/10";
+                        if (n.type === 'case2_resolved') iconClass = "fa-check-double text-blue-500 bg-blue-500/10";
 
                         let dot = !n.is_read ? '<div class="w-2 h-2 bg-primary rounded-full shrink-0"></div>' : '';
                         let opacityClass = n.is_read ? 'opacity-60' : 'opacity-100';
@@ -311,6 +332,17 @@
             .catch(err => console.error("Error fetching notifications:", err));
         }
 
+        function markAllNotificationsRead() {
+            fetch("{% url 'api_mark_all_notifications_read' %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1]
+                }
+            }).then(() => {
+                fetchNotifications();
+            });
+        }
+
         function handleNotificationClick(notifId, targetId, type) {
             // Mark as read
             fetch(`/inventory/api/notifications/read/${notifId}/`, {
@@ -320,7 +352,7 @@
                 }
             }).then(() => {
                 toggleNotifications(); // Close panel
-                if (type === 'case1') {
+                if (type === 'case1' || type === 'case2_resolved') {
                     window.location.href = `/inventory/report/${targetId}/`;
                 } else if (type === 'case2' || type === 'case3') {
                     window.location.href = `/inventory/?load_sheet_id=${targetId}`;

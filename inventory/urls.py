@@ -31,6 +31,7 @@ urlpatterns = [
     path('api/attach-previous/', views.api_attach_previous_report, name='api_attach_previous_report'),
     path('api/get-previous-closing/', views.api_get_previous_closing, name='api_get_previous_closing'),
     path('api/notifications/', views.api_get_notifications, name='api_get_notifications'),
+    path('api/notifications/read/all/', views.api_mark_all_notifications_read, name='api_mark_all_notifications_read'),
     path('api/notifications/read/<int:notif_id>/', views.api_mark_notification_read, name='api_mark_notification_read'),
     path('api/raw-sheet/<int:sheet_id>/', views.api_get_raw_sheet, name='api_get_raw_sheet'),
 

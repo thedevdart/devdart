@@ -196,6 +196,9 @@ def save_stock(request):
                     raw_name_scanned=original_scanned
                 )
 
+            from .models import Notification
+            Notification.objects.filter(target_id=sheet.id, notif_type='case2').update(notif_type='case2_resolved')
+
         return JsonResponse({'status': 'success'})
 
     except Exception as e:
@@ -1027,6 +1030,16 @@ def api_mark_notification_read(request, notif_id):
         return JsonResponse({'status': 'success'})
     except Notification.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Notification not found'}, status=404)
+
+@require_app_access('inventory')
+@require_POST
+def api_mark_all_notifications_read(request):
+    """Mark all unread notifications as read for the user."""
+    try:
+        Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
     
 # ==========================================
 # 10. NEXUS PUSH & HTML SYNC (SUPERUSER ONLY)
@@ -2713,34 +2726,24 @@ def supervisor_upload_submit(request, token):
         # --- Success Case: Auto-verified ---
         with transaction.atomic():
             if existing_sheet:
-                if existing_sheet.entries.exists():
-                    # CASE III: Existing sheet is tallied. Save this successful upload as review image.
-                    existing_sheet.review_image = upload
-                    existing_sheet.raw_extracted_data = gemini_result
-                    existing_sheet.save()
-                    message = f'A tallied sheet already exists for {upload_date.strftime("%d %b %Y")}. Your new upload has been saved for admin review.'
-                    sheet = existing_sheet
-                    _create_admin_notifications(
-                        title=f"Review Requested: {center.name}",
-                        message=f"Duplicate sheet uploaded for {upload_date.strftime('%d %b')}.",
-                        notif_type='case3',
-                        target_id=sheet.id
-                    )
-                else:
-                    # CASE I: Success (overwrite previous untallied)
-                    existing_sheet.image = upload
-                    existing_sheet.uploaded_by_source = 'supervisor'
-                    existing_sheet.raw_extracted_data = None
-                    existing_sheet.save()
-                    existing_sheet.entries.all().delete()
-                    sheet = existing_sheet
-                    message = f'Success! Your corrected sheet for {upload_date.strftime("%d %b %Y")} was automatically verified.'
-                    _create_admin_notifications(
-                        title=f"Tallied: {center.name}",
-                        message=f"Stock sheet for {upload_date.strftime('%d %b')} was successfully verified.",
-                        notif_type='case1',
-                        target_id=sheet.id
-                    )
+                # CASE I: Success (overwrite previous)
+                from .models import Notification
+                Notification.objects.filter(target_id=existing_sheet.id).delete()
+                
+                existing_sheet.image = upload
+                existing_sheet.uploaded_by_source = 'supervisor'
+                existing_sheet.raw_extracted_data = None
+                existing_sheet.review_image = None
+                existing_sheet.save()
+                existing_sheet.entries.all().delete()
+                sheet = existing_sheet
+                message = f'Success! Your corrected sheet for {upload_date.strftime("%d %b %Y")} was automatically verified.'
+                _create_admin_notifications(
+                    title=f"Tallied: {center.name}",
+                    message=f"Stock sheet for {upload_date.strftime('%d %b')} was successfully verified.",
+                    notif_type='case1',
+                    target_id=sheet.id
+                )
             else:
                 # CASE I: Success
                 sheet = StockSheet.objects.create(
@@ -2790,33 +2793,24 @@ def supervisor_upload_submit(request, token):
         
         with transaction.atomic():
             if existing_sheet:
-                 if existing_sheet.entries.exists():
-                     # CASE III: Existing sheet is tallied. Save this failed upload as review image.
-                     existing_sheet.review_image = upload
-                     existing_sheet.raw_extracted_data = gemini_result
-                     existing_sheet.save()
-                     message = f'A tallied sheet already exists for {upload_date.strftime("%d %b %Y")}. Your new upload has been saved for admin review.'
-                     sheet = existing_sheet
-                     _create_admin_notifications(
-                         title=f"Review Requested: {center.name}",
-                         message=f"Duplicate sheet uploaded for {upload_date.strftime('%d %b')} with errors.",
-                         notif_type='case3',
-                         target_id=sheet.id
-                     )
-                 else:
-                     # CASE II: Previous upload also failed. Overwrite the image for admin to review.
-                     existing_sheet.image = upload
-                     existing_sheet.uploaded_by_source = 'supervisor'
-                     existing_sheet.raw_extracted_data = gemini_result
-                     existing_sheet.save()
-                     message = f'Got it. Your corrected sheet for {upload_date.strftime("%d %b %Y")} is queued for manual review.'
-                     sheet = existing_sheet
-                     _create_admin_notifications(
-                         title=f"Tally Failed: {center.name}",
-                         message=f"Stock sheet for {upload_date.strftime('%d %b')} failed auto-verification.",
-                         notif_type='case2',
-                         target_id=sheet.id
-                     )
+                 # CASE II: Previous upload failed/succeeded, now replacing with failed.
+                 from .models import Notification
+                 Notification.objects.filter(target_id=existing_sheet.id).delete()
+
+                 existing_sheet.image = upload
+                 existing_sheet.uploaded_by_source = 'supervisor'
+                 existing_sheet.raw_extracted_data = gemini_result
+                 existing_sheet.review_image = None
+                 existing_sheet.save()
+                 existing_sheet.entries.all().delete()
+                 message = f'Got it. Your corrected sheet for {upload_date.strftime("%d %b %Y")} is queued for manual review.'
+                 sheet = existing_sheet
+                 _create_admin_notifications(
+                     title=f"Tally Failed: {center.name}",
+                     message=f"Stock sheet for {upload_date.strftime('%d %b')} failed auto-verification.",
+                     notif_type='case2',
+                     target_id=sheet.id
+                 )
             else:
                 # CASE II: First time failure
                 sheet = StockSheet.objects.create(
