@@ -1,0 +1,926 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucro Hub | Inventory</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Quicksand:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="/media/icons/favicon.png" type="image/png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/inventory/css/base.css?v=1.6">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { 
+                        sans: ['"Outfit"', 'sans-serif'], 
+                        heading: ['"Quicksand"', 'sans-serif'],
+                        fredoka: ['"Fredoka"', 'sans-serif']
+                    },
+                    colors: { 
+                        primary: '#FF8965', 
+                        accent: '#96CD1E',  
+                        brand: '#01444e',   
+                        slate: {
+                            50: '#f2f8f9', 100: '#dfedef', 200: '#c1d9dd', 300: '#99bcc2',
+                            400: '#6b9aa1', 500: '#487c84', 600: '#34636b', 700: '#2b5057',
+                            800: '#02343b', 900: '#012126', 950: '#001215',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Automatically force all headers to Quicksand */
+        h1, h2, h3, h4, h5, h6 { font-family: 'Quicksand', sans-serif !important; }
+        
+        /* Strict failsafe to guarantee the calendar ghosting never occurs */
+        .flatpickr-calendar:not(.open) { display: none !important; visibility: hidden !important; z-index: -9999 !important; }
+        
+        /* Smooth Crossfade for Sidebar Logo */
+        .logo-expanded, .logo-collapsed { transition: opacity 0.3s ease, visibility 0.3s ease; }
+        
+        .sidebar-collapsed .logo-expanded { opacity: 0; visibility: hidden; pointer-events: none; }
+        .sidebar-collapsed .logo-collapsed { opacity: 1; visibility: visible; pointer-events: auto; }
+        
+        html:not(.sidebar-collapsed) .logo-expanded { opacity: 1; visibility: visible; pointer-events: auto; }
+        html:not(.sidebar-collapsed) .logo-collapsed { opacity: 0; visibility: hidden; pointer-events: none; }
+    </style>
+
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else { document.documentElement.classList.remove('dark'); }
+        
+        if (localStorage.getItem('sidebarCollapsed') === 'true') {
+            document.documentElement.classList.add('sidebar-collapsed');
+        }
+    </script>
+</head>
+
+<body class="bg-slate-50 dark:bg-slate-950 font-sans text-slate-800 dark:text-slate-200 antialiased selection:bg-accent/30 dark:selection:text-accent">
+
+    <div id="top-loader"></div>
+
+    <div class="flex flex-col md:flex-row h-screen overflow-hidden">
+        
+        <div class="md:hidden flex items-center justify-between bg-brand h-14 px-4 border-b border-white/5 shrink-0 z-40 shadow-sm">
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-1.5">
+                    <img src="/media/logos/lucronosub.png" alt="Lucro" class="h-4 w-auto object-contain">
+                    <span class="font-fredoka text-white text-[20px] leading-none translate-y-[1px]">Hub</span>
+                </div>
+            </div>
+            <button id="mobile-menu-btn" class="text-white/70 hover:text-white transition-colors p-2 active:scale-95">
+                <i class="fa-solid fa-bars text-xl"></i>
+            </button>
+        </div>
+
+        <div id="mobile-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[90] hidden md:hidden opacity-0 transition-opacity duration-300"></div>
+
+        <aside id="main-sidebar" class="fixed md:relative inset-y-0 left-0 z-[100] transform -translate-x-full md:translate-x-0 flex flex-col bg-brand border-r border-brand shrink-0 h-full transition-transform md:transition-[width] duration-300 shadow-xl md:shadow-none">
+            
+            <button id="sidebar-toggle" class="hidden md:flex absolute -right-3 top-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-brand dark:text-accent hover:text-accent w-6 h-6 rounded-sm items-center justify-center shadow-md z-50 transition-colors cursor-pointer">
+                <i id="sidebar-toggle-icon" class="fa-solid fa-chevron-left text-[10px] transition-transform duration-200"></i>
+            </button>
+
+            <div class="h-24 w-full shrink-0 border-b border-white/5 relative flex items-center">
+                
+                <div class="logo-expanded absolute inset-0 flex flex-col justify-center px-6 w-full">
+                    <div class="flex items-center gap-2">
+                        <img src="/media/logos/lucronosub.png" alt="Lucro" class="h-[22px] w-auto object-contain">
+                        <span class="font-fredoka text-white text-[26px] leading-none tracking-wide translate-y-[2px]">Hub</span>
+                    </div>
+                    <span class="text-accent text-[9.5px] font-black uppercase tracking-[0.25em] leading-none mt-2 ml-0.5">Inventory</span>
+                </div>
+
+                <div class="logo-collapsed absolute inset-0 flex items-center justify-center w-full">
+                    <div class="w-9 h-9 flex items-center justify-center shrink-0">
+                        <img src="/media/logos/lucrologo.png" alt="L" class="w-full h-full object-contain">
+                    </div>
+                </div>
+
+            </div>
+
+            <nav class="flex-1 py-4 overflow-y-auto custom-scrollbar relative z-10 flex flex-col">
+                
+                <a href="/inventory/" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors  text-white/60 hover:text-white hover:bg-white/5 ">
+                    <i class="fa-solid fa-cloud-arrow-up text-lg w-5 text-center shrink-0 "></i>
+                    <span class="sidebar-text text-[13px] font-semibold tracking-wide">Extract Stock</span>
+                </a>
+                
+                <a href="/inventory/daily-reports/" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors  text-white/60 hover:text-white hover:bg-white/5 ">
+                    <i class="fa-solid fa-chart-line text-lg w-5 text-center shrink-0 "></i>
+                    <span class="sidebar-text text-[13px] font-semibold tracking-wide">Daily Reports</span>
+                </a>
+                
+                <a href="/inventory/daily-report-view/" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors  text-white/60 hover:text-white hover:bg-white/5 ">
+                    <i class="fa-solid fa-calendar-check text-lg w-5 text-center shrink-0 "></i>
+                    <span class="sidebar-text text-[13px] font-semibold tracking-wide">Daily Report View</span>
+                </a>
+
+                <a href="/inventory/centers/" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors  text-white/60 hover:text-white hover:bg-white/5 ">
+                    <i class="fa-solid fa-building text-lg w-5 text-center shrink-0 "></i>
+                    <span class="sidebar-text text-[13px] font-semibold tracking-wide">Centers Setup</span>
+                </a>
+                
+                <a href="/inventory/custom-reports/" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors  text-white/60 hover:text-white hover:bg-white/5 ">
+                    <i class="fa-solid fa-chart-pie text-lg w-5 text-center shrink-0 "></i>
+                    <span class="sidebar-text text-[13px] font-semibold tracking-wide">Custom Reports</span>
+                </a>
+                
+                <a href="/inventory/sorting-report/" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors  text-white/60 hover:text-white hover:bg-white/5 ">
+                    <i class="fa-solid fa-filter text-lg w-5 text-center shrink-0 "></i>
+                    <span class="sidebar-text text-[13px] font-semibold tracking-wide">Sorting Engine</span>
+                </a>
+                
+                <a href="/inventory/templates/" class="nav-link nav-item flex items-center gap-4 px-6 py-3.5 transition-colors  text-white/60 hover:text-white hover:bg-white/5 ">
+                    <i class="fa-solid fa-clipboard-list text-lg w-5 text-center shrink-0 "></i>
+                    <span class="sidebar-text text-[13px] font-semibold tracking-wide">Templates</span>
+                </a>
+            </nav>
+
+            <div class="p-4 border-t border-white/5 bg-black/10 flex flex-col gap-1">
+                <button onclick="toggleNotifications()" class="nav-item flex items-center gap-4 w-full px-4 py-3 text-white/60 hover:text-white hover:bg-white/5 transition-colors rounded-md active:scale-95 group border border-transparent">
+                    <div class="relative w-6 h-6 flex items-center justify-center shrink-0 group-hover:text-accent transition-colors">
+                        <i class="fa-solid fa-bell text-lg"></i>
+                        <span id="notif-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-white dark:border-slate-900 hidden"></span>
+                    </div>
+                    <span class="sidebar-text text-[13px] font-semibold tracking-wide">Notifications</span>
+                </button>
+
+                <button onclick="toggleTheme()" class="nav-item flex items-center gap-4 w-full px-4 py-3 text-white/60 hover:text-white hover:bg-white/5 transition-colors rounded-md active:scale-95 group border border-transparent">
+                    <div class="w-6 h-6 flex items-center justify-center shrink-0 group-hover:text-accent transition-colors"><i id="theme-icon" class="fa-solid fa-moon text-lg"></i></div>
+                    <span id="theme-text" class="sidebar-text text-[13px] font-semibold tracking-wide">Toggle Theme</span>
+                </button>
+
+                <a href="/inventory/profile/" class="nav-link nav-item flex items-center gap-4 px-4 py-3 hover:bg-white/5 transition-colors rounded-md active:scale-95 border border-transparent">
+                    <div class="w-6 h-6 bg-white/5 border border-white/10 flex items-center justify-center font-bold text-[11px] text-white shrink-0 rounded-sm uppercase tracking-widest"></div>
+                    <div class="sidebar-text flex-1 min-w-0"><p class="text-[13px] font-semibold text-white truncate"></p></div>
+                </a>
+            </div>
+        </aside>
+
+        <main class="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar p-4 md:p-8 lg:p-10 relative bg-slate-50 dark:bg-slate-950">
+            
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<style>
+    [x-cloak] { display: none !important; }
+
+    /* Table Input Focus States */
+    tbody tr { transition: background-color 0.2s ease, border-color 0.2s ease; }
+    td[contenteditable="true"]:focus { background-color: #ffffff; box-shadow: inset 0 0 0 2px var(--color-primary, #FF8965); outline: none; border-radius: 4px; }
+    .dark td[contenteditable="true"]:focus { background-color: #0f172a; box-shadow: inset 0 0 0 2px var(--color-primary, #FF8965); color: white; }
+    
+    /* Drag and Drop States */
+    .val-input { cursor: grab; transition: background-color 0.2s; }
+    .val-input:active { cursor: grabbing; }
+    .drag-over { background-color: rgba(255, 137, 101, 0.15) !important; outline: 2px dashed var(--color-primary, #FF8965); outline-offset: -2px; }
+    input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+    /* CSS TABS - Instantly isolates columns */
+    table.tab-opening .col-inward, table.tab-opening .col-dispatch, table.tab-opening .col-closing, table.tab-opening .col-tally-closing, table.tab-opening .closing-only-ui { display: none !important; }
+    table.tab-inward .col-opening, table.tab-inward .col-dispatch, table.tab-inward .col-closing, table.tab-inward .col-tally-opening, table.tab-inward .col-tally-closing, table.tab-inward .closing-only-ui { display: none !important; }
+    table.tab-dispatch .col-opening, table.tab-dispatch .col-inward, table.tab-dispatch .col-closing, table.tab-dispatch .col-tally-opening, table.tab-dispatch .col-tally-closing, table.tab-dispatch .closing-only-ui { display: none !important; }
+    table.tab-closing .col-opening, table.tab-closing .col-inward, table.tab-closing .col-dispatch, table.tab-closing .col-tally-opening, table.tab-closing .non-closing-ui { display: none !important; }
+</style>
+
+<div id="ledger-app-container" class="max-w-[100rem] mx-auto py-4 font-sans relative flex flex-col min-h-[800px] pb-4" x-data="{ showSaveModal: false, showFullSheet: false, activeTab: 'closing', unresolvedCount: 0, documentFullscreen: false }">
+    
+    <div x-show="showSaveModal" x-cloak class="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm transition-opacity" x-transition.opacity>
+        <div @click.away="showSaveModal = false" class="bg-white dark:bg-slate-900 rounded-md shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md p-8 transform transition-all duration-300">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 rounded-full bg-red-50 dark:bg-red-500/10 flex items-center justify-center text-red-500 shrink-0">
+                    <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                </div>
+                <h3 class="text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase font-heading">Unresolved Items</h3>
+            </div>
+            <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-8 uppercase tracking-widest leading-relaxed">
+                You have <strong class="text-red-500" x-text="unresolvedCount"></strong> item(s) highlighted in red. Proceeding will permanently add these to the Master Template.
+            </p>
+            <div class="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-800">
+                <button @click="showSaveModal = false" class="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-md font-black transition-colors text-[11px] uppercase tracking-widest">Go Back</button>
+                <button onclick="executeSave()" class="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-md font-black transition-colors text-[11px] uppercase tracking-widest shadow-sm active:scale-95 flex items-center justify-center gap-2">
+                    Save Anyway
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-5 right-5 z-[9999] hidden transition-all duration-300 transform translate-y-full opacity-0">
+        <div class="bg-brand text-white px-5 py-4 rounded-md shadow-2xl flex items-start gap-4 min-w-[320px] max-w-sm border-l-4 border-primary">
+            <i id="toast-icon" class="fa-solid fa-circle-info text-primary text-lg mt-0.5"></i>
+            <div class="flex-1">
+                <h4 id="toast-title" class="font-black text-[11px] text-slate-50 uppercase tracking-widest">Notification</h4>
+                <p id="toast-msg" class="text-xs font-medium text-slate-300 mt-1"></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-6 flex-shrink-0">
+        <div>
+            <h1 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase flex items-center gap-4 font-heading">
+                <span class="bg-primary/10 text-primary p-2.5 rounded-md shadow-sm"><i class="fa-solid fa-layer-group text-xl md:text-2xl"></i></span>
+                Stock Digitization
+            </h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-2 font-bold uppercase tracking-widest">Transform physical stock sheets into fully traceable digital records</p>
+            <p class="text-[10px] text-slate-500 dark:text-slate-450 mt-1 font-bold uppercase tracking-widest">
+                <span class="text-primary font-black">Important:</span> AI extraction can make mistakes. Always cross-check the extracted values before saving.
+            </p>
+        </div>
+        
+    </div>
+
+    <div class="bg-white dark:bg-[#0a0f18] p-5 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 transition-colors duration-300 mb-6 flex-shrink-0">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+            
+            <div class="space-y-2">
+                <label class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">1. Center</label>
+                <div class="relative z-50" x-data="{ 
+                        centerOpen: false, 
+                        centerSearch: '', 
+                        uploadedIds: [],
+                        supervisorIds: [],
+                        activeIndex: -1,
+                        centers: [
+                            
+                            { id: 1, name: 'Rajkot HD', category: 'HD' },
+                            
+                            { id: 2, name: 'Salem', category: 'LD' }
+                            
+                        ],
+                        get filteredCenters() {
+                            if (this.centerSearch.trim() === '') {
+                                return this.centers;
+                            }
+                            const searchLower = this.centerSearch.toLowerCase().replace(/\s+/g, '');
+                            return this.centers.filter(c => {
+                                const name = c.name.toLowerCase();
+                                let i = 0, j = 0;
+                                while(i < searchLower.length && j < name.length) {
+                                    if(searchLower[i] === name[j]) i++;
+                                    j++;
+                                }
+                                return i === searchLower.length;
+                            });
+                        },
+                        selectCenter(center) {
+                            this.centerSearch = center.name;
+                            document.getElementById('centerSelect').value = center.id;
+                            this.centerOpen = false;
+                            this.activeIndex = -1;
+                            loadCenterMasters();
+                            if (typeof maybeLoadSupervisorSheet === 'function') {
+                                maybeLoadSupervisorSheet(center.id);
+                            }
+                        },
+                        handleEnter() {
+                            if (this.activeIndex >= 0 && this.activeIndex < this.filteredCenters.length) {
+                                this.selectCenter(this.filteredCenters[this.activeIndex]);
+                                this.$refs.searchInput.blur();
+                            } else if (this.filteredCenters.length > 0) {
+                                this.selectCenter(this.filteredCenters[0]);
+                                this.$refs.searchInput.blur();
+                            }
+                        },
+                        navigate(direction) {
+                            if (!this.centerOpen) { this.centerOpen = true; return; }
+                            if (direction === 'down') { this.activeIndex = this.activeIndex < this.filteredCenters.length - 1 ? this.activeIndex + 1 : 0; }
+                            else if (direction === 'up') { this.activeIndex = this.activeIndex > 0 ? this.activeIndex - 1 : this.filteredCenters.length - 1; }
+                            this.$nextTick(() => { const dropdown = this.$refs.dropdown; if (dropdown && dropdown.children[this.activeIndex]) { dropdown.children[this.activeIndex].scrollIntoView({ block: 'nearest' }); } });
+                        },
+                        async openSavedReport(centerId) {
+                            const dateVal = document.getElementById('dateInput').value;
+                            if(!dateVal) return;
+                            try {
+                                const res = await fetch('/inventory/api/navigate/' + centerId + '/?date=' + dateVal + '&action=exact');
+                                const data = await res.json();
+                                if(data.status === 'success' && data.sheet_id) {
+                                    window.location.href = '/inventory/report/' + data.sheet_id + '/';
+                                } else {
+                                    if(typeof showToast === 'function') showToast('Not Found', 'Saved report could not be located.', 'warning');
+                                }
+                            } catch(e) {
+                                console.error(e);
+                            }
+                        }
+                    }" 
+                    @click.away="centerOpen = false; activeIndex = -1"
+                    @uploads-checked.window="uploadedIds = window.uploadedCenterIds || []; supervisorIds = window.supervisorCenterIds || []">
+                    
+                    <div class="relative w-full">
+                        <i class="fa-solid fa-building absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                        <input type="text" 
+                               x-ref="searchInput"
+                               x-model="centerSearch" 
+                               @focus="centerOpen = true; centerSearch = ''; activeIndex = -1" 
+                               @keydown.enter.prevent="handleEnter()"
+                               @keydown.arrow-down.prevent="navigate('down')"
+                               @keydown.arrow-up.prevent="navigate('up')"
+                               @input="activeIndex = -1"
+                               placeholder="Search & Select Center..." 
+                               class="w-full pl-11 pr-10 py-3.5 border border-slate-300 dark:border-slate-700 rounded-sm bg-slate-50 dark:bg-[#05080f] text-slate-900 dark:text-white hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-[12px] font-black uppercase tracking-widest outline-none cursor-pointer transition-all shadow-inner">
+                        <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 pointer-events-none transition-transform duration-200" :class="centerOpen ? 'rotate-180' : ''"></i>
+                    </div>
+                    
+                    <div x-show="centerOpen" x-transition.opacity.duration.200ms class="absolute z-50 w-full mt-1 bg-white dark:bg-[#0a0f18] border border-slate-200 dark:border-slate-800 rounded-md shadow-2xl max-h-64 overflow-y-auto no-scrollbar flex flex-col py-1" x-cloak>
+                        <div class="flex flex-col" x-ref="dropdown">
+                            <template x-for="(center, index) in filteredCenters" :key="center.id">
+                                <div @click="selectCenter(center)" 
+                                     @mouseenter="activeIndex = index"
+                                     class="dropdown-center-item px-4 py-3.5 text-[11px] cursor-pointer border-b border-slate-100 dark:border-slate-800 flex justify-between items-center transition-colors group"
+                                     :class="{
+                                        'bg-slate-100 dark:bg-slate-800': activeIndex === index && !uploadedIds.includes(center.id),
+                                        'bg-emerald-200 dark:bg-emerald-800/80': activeIndex === index && uploadedIds.includes(center.id),
+                                        'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-800/80': uploadedIds.includes(center.id) && activeIndex !== index,
+                                        'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50': !uploadedIds.includes(center.id) && activeIndex !== index
+                                     }"
+                                     :data-center-id="center.id">
+                                    <span class="font-black uppercase tracking-widest" x-text="center.name"></span>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <template x-if="supervisorIds.includes(center.id) && !uploadedIds.includes(center.id)">
+                                            <i class="fa-solid fa-image text-[12px] text-amber-600 dark:text-amber-400" title="Supervisor uploaded a sheet for this date"></i>
+                                        </template>
+                                        <template x-if="uploadedIds.includes(center.id)">
+                                            <button @click.stop="openSavedReport(center.id)" class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-emerald-300 dark:hover:bg-emerald-700/80 text-emerald-800 dark:text-emerald-200 transition-all shadow-sm" title="Open Saved Report">
+                                                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                            </button>
+                                        </template>
+                                        <template x-if="center.category">
+                                            <span class="px-2 py-1 rounded-sm text-[9px] font-black uppercase tracking-widest shadow-sm border"
+                                                  :class="uploadedIds.includes(center.id) ? 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700' : 'bg-slate-100 dark:bg-[#05080f] text-slate-500 border-slate-200 dark:border-slate-700'"
+                                                  x-text="center.category"></span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                            <div x-show="filteredCenters.length === 0" class="px-4 py-4 text-center text-slate-500 text-[10px] font-bold uppercase tracking-widest">
+                                No centers found
+                            </div>
+                        </div>
+                    </div>
+                    <select id="centerSelect" class="hidden">
+                        <option value="" disabled selected></option>
+                        
+                            <option value="1">Rajkot HD</option>
+                        
+                            <option value="2">Salem</option>
+                        
+                    </select>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <label class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center justify-between ml-1">
+                    <span>2. Record Date</span>
+                    <button onclick="fetchPreviousClosing()" class="text-primary hover:text-primary/80 transition-colors" title="Refresh Previous Balances">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
+                </label>
+                <div class="relative flex items-center group">
+                    <i onclick="document.getElementById('dateInput')._flatpickr.open()" class="fa-regular fa-calendar absolute left-4 top-1/2 -translate-y-1/2 text-primary z-10 cursor-pointer group-hover:scale-110 transition-transform"></i>
+                    <input type="text" id="dateInput" placeholder="SELECT DATE..." class="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-700 rounded-sm bg-slate-50 dark:bg-[#05080f] text-slate-900 dark:text-white text-[11px] font-black uppercase tracking-widest hover:border-primary focus:border-primary outline-none transition-all shadow-inner cursor-pointer placeholder:text-slate-400">
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <label class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">3. System Status</label>
+                <div id="complicationBadge" class="w-full">
+                    <div class="bg-slate-50 dark:bg-[#05080f] border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 px-4 py-3 rounded-sm text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-inner w-full">
+                        <i class="fa-solid fa-circle-info text-sm"></i>
+                        <span>Awaiting Extraction</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="liveTotals" class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6 hidden shrink-0">
+        <div class="bg-white dark:bg-[#0a0f18] border border-slate-200 dark:border-slate-800 p-5 rounded-md shadow-sm transition-colors duration-300 flex items-center justify-between">
+            <div class="w-full">
+                <p id="card-title-rm" class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">RM CLOSING</p>
+                <div class="flex items-end gap-4 w-full">
+                    <div class="w-1/2">
+                        <p id="label-calc-rm" class="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-1">Calculated</p>
+                        <p id="totalRawCalc" class="text-2xl font-black text-brand dark:text-white font-mono tracking-tighter">0</p>
+                    </div>
+                    <div class="w-1/2 border-l border-slate-200 dark:border-slate-800 pl-4">
+                        <p class="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-1">Scanned</p>
+                        <p id="totalRaw" class="text-2xl font-black text-brand dark:text-white font-mono tracking-tighter">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-[#0a0f18] border border-slate-200 dark:border-slate-800 p-5 rounded-md shadow-sm transition-colors duration-300 flex items-center justify-between">
+            <div class="w-full">
+                <p id="card-title-fg" class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">FG CLOSING</p>
+                <div class="flex items-end gap-4 w-full">
+                    <div class="w-1/2">
+                        <p id="label-calc-fg" class="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-1">Calculated</p>
+                        <p id="totalFinishedCalc" class="text-2xl font-black text-brand dark:text-white font-mono tracking-tighter">0</p>
+                    </div>
+                    <div class="w-1/2 border-l border-slate-200 dark:border-slate-800 pl-4">
+                        <p class="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-1">Scanned</p>
+                        <p id="totalFinished" class="text-2xl font-black text-brand dark:text-white font-mono tracking-tighter">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="globalStatusCard" class="bg-slate-100 dark:bg-[#05080f] border border-slate-300 dark:border-slate-800 p-5 rounded-md shadow-sm transition-all duration-300 flex flex-col justify-center relative overflow-hidden">
+            <p class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 relative z-10">Sheet Status</p>
+            <div class="flex items-center gap-3 relative z-10" id="globalStatusContent">
+                <i class="fa-solid fa-circle-notch fa-spin text-slate-400 text-2xl"></i>
+                <span class="text-lg font-black text-primary uppercase tracking-tighter">Calculating...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-6 min-h-[500px] items-start">
+        
+        <!-- Fullscreen Backdrop -->
+        <div x-show="documentFullscreen" x-cloak class="fixed inset-0 z-[140] bg-slate-900/80 backdrop-blur-sm transition-opacity" @click="documentFullscreen = false"></div>
+
+        <div :class="documentFullscreen ? 'fixed inset-4 md:inset-8 z-[150] shadow-2xl' : 'xl:col-span-5 relative shadow-inner h-[700px] xl:h-[calc(100vh-6rem)] xl:sticky xl:top-4 z-10'"
+             class="flex flex-col bg-slate-50 dark:bg-[#05080f] rounded-md border border-slate-200 dark:border-slate-800 overflow-hidden flex-shrink-0 transition-all duration-300 group">
+            
+            <!-- Industry Standard Toolbar -->
+            <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0a0f18] flex flex-wrap justify-between items-center gap-3 z-20 shrink-0">
+                <h3 class="font-black text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-widest flex items-center gap-2">
+                    <i class="fa-regular fa-image text-primary"></i> Source Document
+                </h3>
+                
+                <div class="flex items-center gap-2">
+                    <!-- Zoom Button (Hidden until file loaded by JS) -->
+                    <button id="zoomToggleBtn" onclick="window.toggleZoom()" class="hidden text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-primary hover:text-primary w-8 h-8 rounded-sm items-center justify-center transition-colors shadow-sm active:scale-95" title="Toggle Deep Zoom">
+                        <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                    </button>
+
+                    <!-- Fullscreen Toggle -->
+                    <button @click="documentFullscreen = !documentFullscreen" class="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-primary hover:text-primary w-8 h-8 rounded-sm flex items-center justify-center transition-colors shadow-sm active:scale-95" :title="documentFullscreen ? 'Exit Fullscreen' : 'Full Screen'">
+                        <i class="fa-solid" :class="documentFullscreen ? 'fa-compress' : 'fa-expand'"></i>
+                    </button>
+
+                    <div class="w-px h-5 bg-slate-300 dark:bg-slate-700 mx-1 hidden sm:block"></div>
+
+                    <!-- Actions -->
+                    <button onclick="attachPreviousReport()" class="text-[10px] bg-white dark:bg-[#0a0f18] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-primary hover:text-primary px-3 py-1.5 rounded-sm font-black uppercase tracking-widest transition-colors flex items-center gap-1.5 shadow-sm active:scale-95" title="Duplicate previous day's sheet">
+                        <i class="fa-solid fa-copy"></i> <span class="hidden sm:inline">Attach Previous</span>
+                    </button>
+                    <div class="relative group/upload cursor-pointer" id="dropzone-small">
+                        <input type="file" id="fileInput" accept="image/*,application/pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" aria-label="Upload source document"/>
+                        <button class="text-[9px] bg-primary hover:bg-primary/90 text-white px-3 py-1.5 rounded-sm font-black uppercase tracking-widest transition-colors flex items-center gap-1.5 shadow-sm active:scale-95">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> <span class="hidden sm:inline">Upload</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- Supervisor Pre-load Banner (hidden unless a supervisor sheet is loaded) -->
+            <div id="supervisorBadge" class="hidden px-4 py-2 border-b border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shrink-0">
+                <i class="fa-solid fa-image"></i>
+                <span>Uploaded by Supervisor<span data-supervisor-time></span></span>
+            </div>
+            <!-- Supervisor Pre-load Banner (hidden unless a supervisor sheet is loaded) -->
+            <div id="supervisorBadge" class="hidden px-4 py-2 border-b border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shrink-0">
+                <i class="fa-solid fa-image"></i>
+                <span>Uploaded by Supervisor<span data-supervisor-time></span></span>
+            </div>
+            <!-- Viewer Area -->
+            <div id="previewContainer" class="flex-1 relative flex flex-col items-center justify-center overflow-auto custom-scrollbar p-4 md:p-6 w-full min-h-0 bg-slate-50 dark:bg-[#05080f]">
+                
+                <div id="placeholder-content" class="text-center text-slate-400 dark:text-slate-600 flex flex-col items-center relative group/large w-full h-full min-h-[300px] justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl transition-colors hover:border-primary/50 hover:bg-primary/5">
+                    <input type="file" id="fileInputLarge" accept="image/*,application/pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" aria-label="Upload source document"/>
+                    <div class="w-20 h-20 mb-4 rounded-2xl bg-white dark:bg-[#0a0f18] shadow-sm border border-slate-200 dark:border-slate-800 flex items-center justify-center text-4xl group-hover/large:scale-110 group-hover/large:border-primary group-hover/large:text-primary transition-all duration-300">
+                        <i class="fa-solid fa-file-circle-plus text-slate-300 dark:text-slate-600 group-hover/large:text-primary transition-colors"></i>
+                    </div>
+                    <h4 class="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-1">Upload Source Document</h4>
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Click or drag & drop (PDF, JPG, PNG)</p>
+                </div>
+                
+                <img id="previewImg" class="hidden max-w-full max-h-full object-contain rounded-md shadow-sm border border-slate-200 dark:border-slate-800 bg-white transition-transform duration-100 ease-out" alt="Document Preview">
+                
+                <div id="pdfCanvasContainer" class="hidden w-full h-full flex-col items-center gap-4 custom-scrollbar min-h-0 transition-transform duration-100 ease-out"></div>
+            </div>
+
+            <!-- Footer Toolbar -->
+            <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0a0f18] shrink-0 z-20">
+                <button onclick="runAnalysis()" id="analyzeBtn" class="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white text-[11px] uppercase tracking-widest font-black py-3.5 rounded-sm shadow-sm disabled:opacity-50 transition-colors active:scale-[0.99] border border-transparent">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Extract Data via AI
+                </button>
+                <div id="status" class="mt-2 text-[10px] font-black text-center text-slate-500 hidden flex items-center justify-center gap-1.5 uppercase tracking-widest"></div>
+            </div>
+        </div>
+
+        <div id="results" class="xl:col-span-7 hidden flex-col h-[700px] xl:h-[calc(100vh-6rem)] xl:sticky xl:top-4 z-10 bg-white dark:bg-[#0a0f18] rounded-md border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex-shrink-0 transition-colors duration-300">
+            
+            <div class="flex items-center gap-2 px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0a0f18] flex-shrink-0 overflow-x-auto no-scrollbar" id="tableTabsContainer">
+                <template x-for="tab in ['opening', 'inward', 'dispatch', 'closing']">
+                    <button @click="activeTab = tab; window.currentActiveTab = tab; window.calculateTotals()" 
+                            class="tab-btn flex-1 py-1.5 text-[10px] rounded-sm border transition-all uppercase tracking-widest"
+                            :class="activeTab === tab ? 'font-black bg-primary/10 text-primary border-primary/20 shadow-sm' : 'font-bold text-slate-500 dark:text-slate-400 border-transparent hover:bg-slate-100 dark:hover:bg-[#05080f]'">
+                        <span x-text="tab === 'inward' ? 'Inward / Prod' : tab"></span>
+                    </button>
+                </template>
+            </div>
+
+            <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#05080f] flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0">
+                <div class="flex items-center gap-4 shrink-0">
+                    <h3 class="font-black text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-widest flex items-center gap-2">
+                        <i class="fa-solid fa-table-list text-slate-400"></i> Extracted Data
+                    </h3>
+
+                    <div class="relative group cursor-help" x-show="activeTab === 'closing'">
+                        <i class="fa-solid fa-circle-info text-slate-400 hover:text-primary transition-colors text-lg"></i>
+                        <div class="absolute left-0 top-6 w-64 bg-slate-900 text-white text-[10px] rounded-md p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                            <h4 class="font-black mb-2 text-primary border-b border-slate-700 pb-2 uppercase tracking-widest">AI Corrections Made</h4>
+                            <ul id="auditLogList" class="space-y-1.5 text-slate-300 list-disc pl-4 max-h-40 overflow-y-auto no-scrollbar font-medium">
+                                <li class="italic text-slate-500">None</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="flex items-center gap-1">
+                        <button id="undoBtn" onclick="window.undo()" class="w-8 h-8 bg-white dark:bg-[#0a0f18] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 rounded-sm flex items-center justify-center hover:border-primary hover:text-primary transition-colors shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" disabled title="Undo (Ctrl+Z)">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                        <button id="redoBtn" onclick="window.redo()" class="w-8 h-8 bg-white dark:bg-[#0a0f18] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 rounded-sm flex items-center justify-center hover:border-primary hover:text-primary transition-colors shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" disabled title="Redo (Ctrl+Y)">
+                            <i class="fa-solid fa-rotate-right"></i>
+                        </button>
+                    </div>
+                    <div class="w-px h-5 bg-slate-200 dark:bg-slate-800 hidden sm:block mx-1"></div>
+
+                    <button onclick="cleanEmptyRows()" class="w-8 h-8 bg-white dark:bg-[#0a0f18] border border-slate-200 dark:border-slate-800 rounded-sm flex items-center justify-center hover:border-primary hover:text-primary text-slate-600 dark:text-slate-400 transition-colors shadow-sm active:scale-95" title="Clean Zeros">
+                        <i class="fa-solid fa-broom"></i>
+                    </button>                    
+                    <button onclick="window.addRow()" x-show="activeTab === 'closing'" class="w-8 h-8 bg-white dark:bg-[#0a0f18] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 rounded-sm flex items-center justify-center hover:border-primary hover:text-primary transition-colors shadow-sm active:scale-95" title="Add Row">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                    <div class="w-px h-5 bg-slate-200 dark:bg-slate-800 hidden sm:block mx-1"></div>
+                    <button onclick="window.triggerSaveFlow()" class="text-[10px] bg-accent text-brand border border-transparent px-5 py-2 rounded-sm font-black uppercase tracking-widest hover:bg-accent/90 flex items-center gap-1.5 transition-colors shadow-sm active:scale-95"><i class="fa-solid fa-cloud-arrow-up"></i> Save Sheet</button>
+                </div>
+            </div>
+            
+            <div class="flex-1 overflow-auto custom-scrollbar" id="tableScrollContainer">
+                <table class="w-full text-sm text-left border-collapse" :class="'tab-' + activeTab" id="stockTable">
+                    <thead class="bg-slate-50 dark:bg-[#05080f] text-[9px] uppercase tracking-widest font-black sticky top-0 text-slate-500 dark:text-slate-400 z-10 shadow-sm border-b border-slate-200 dark:border-slate-800">
+                        <tr>
+                            <th class="px-2 py-2 w-16 text-center border-r border-slate-200 dark:border-slate-800">
+                                <div class="flex flex-col items-center gap-1">
+                                    <span>Type</span>
+                                    <div class="relative custom-select z-50 w-full mt-1">
+                                        <select onchange="applyBulkCategory(this.value)" class="w-full bg-white dark:bg-[#0a0f18] border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-[8px] rounded-sm px-1 py-1 outline-none cursor-pointer text-center uppercase tracking-widest font-black shadow-sm">
+                                            <option value="" selected disabled>⋮ ALL</option>
+                                            <option value="Raw Material">ALL RM</option>
+                                            <option value="Finished Goods">ALL FG</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </th>                            
+                            <th class="px-2 py-2 w-1/4 border-r border-slate-200 dark:border-slate-800">Material Name</th>
+                            
+                            <th class="col-opening px-2 py-2 text-center w-20 border-r border-slate-200 dark:border-slate-800">
+                                Last Closing
+                                <button onclick="fetchPreviousClosing()" class="block mx-auto mt-1 opacity-50 hover:opacity-100 transition-opacity" title="Refresh balances">
+                                    <i class="fa-solid fa-arrows-rotate text-[10px] text-primary"></i>
+                                </button>
+                            </th>                            
+                            <th class="col-opening px-2 py-2 text-center text-primary border-r border-slate-200 dark:border-slate-800">Scanned Opening</th>
+                            <th class="col-opening px-1 py-2 text-center w-8 border-r border-slate-200 dark:border-slate-800"></th>
+
+                            <th class="col-inward px-2 py-2 text-center text-primary border-r border-slate-200 dark:border-slate-800">Inward/Production</th>
+                            <th class="col-dispatch px-2 py-2 text-center text-primary border-r border-slate-200 dark:border-slate-800">Scanned Dispatch</th>
+                            
+                            <th class="col-closing px-2 py-2 text-center w-20 border-r border-slate-200 dark:border-slate-800">Calc Close</th>
+                            <th class="col-closing px-2 py-2 text-center text-primary border-r border-slate-200 dark:border-slate-800">Scanned Closing</th>
+                            <th class="col-closing px-1 py-2 text-center w-8 border-r border-slate-200 dark:border-slate-800"></th>
+
+                            <th class="closing-only-ui px-1 py-2 text-center w-8"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                        <!-- JS GENERATED ROWS WILL INHERIT ALPINE STYLING AUTOMATICALLY -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="saveSuccessOverlay" class="fixed inset-0 z-[9999] hidden flex items-center justify-center bg-slate-900/80 backdrop-blur-sm pointer-events-none transition-opacity duration-300 opacity-0">
+    <div class="success-content text-center flex flex-col items-center gap-5 transform transition-all duration-300 scale-95 opacity-0">
+        <img src="/media/logos/lucrologo.png" alt="Lucro" class="w-24 h-24 object-contain spin-heavy drop-shadow-2xl">
+        <div class="space-y-1">
+            <h2 class="text-3xl font-black text-white tracking-widest uppercase font-heading">Successfully Saved!</h2>
+        </div>
+    </div>
+</div>
+
+<script id="center-masters-data" type="application/json">
+    {
+        
+            "1": [
+                
+                    {"id": "1", "name": "RAW MATERIAL", "category": "Raw Material", "order": "0"},
+                
+                    {"id": "2", "name": "GPBMM", "category": "Finished Goods", "order": "1"},
+                
+                    {"id": "3", "name": "GPBMML", "category": "Finished Goods", "order": "2"},
+                
+                    {"id": "4", "name": "GPBMN", "category": "Finished Goods", "order": "3"},
+                
+                    {"id": "5", "name": "GPBMBK", "category": "Finished Goods", "order": "4"},
+                
+                    {"id": "6", "name": "PPDM", "category": "Finished Goods", "order": "5"},
+                
+                    {"id": "7", "name": "LDMMB", "category": "Finished Goods", "order": "6"},
+                
+                    {"id": "8", "name": "HD100NAT", "category": "Finished Goods", "order": "7"},
+                
+                    {"id": "9", "name": "HDBL100 GUM", "category": "Finished Goods", "order": "8"},
+                
+                    {"id": "10", "name": "HD100BL", "category": "Finished Goods", "order": "9"},
+                
+                    {"id": "11", "name": "HD100BK", "category": "Finished Goods", "order": "10"},
+                
+                    {"id": "12", "name": "HD100MX", "category": "Finished Goods", "order": "11"},
+                
+                    {"id": "13", "name": "HD100BY", "category": "Finished Goods", "order": "12"},
+                
+                    {"id": "14", "name": "HD100M", "category": "Finished Goods", "order": "13"},
+                
+                    {"id": "15", "name": "HD100N", "category": "Finished Goods", "order": "14"},
+                
+                    {"id": "16", "name": "HD200BL", "category": "Finished Goods", "order": "15"},
+                
+                    {"id": "17", "name": "HD200BL MIX", "category": "Finished Goods", "order": "16"},
+                
+                    {"id": "18", "name": "HD200YE", "category": "Finished Goods", "order": "17"},
+                
+                    {"id": "19", "name": "HD200YL", "category": "Finished Goods", "order": "18"},
+                
+                    {"id": "20", "name": "HD200BK", "category": "Finished Goods", "order": "19"},
+                
+                    {"id": "21", "name": "HDPPDBK", "category": "Finished Goods", "order": "20"},
+                
+                    {"id": "22", "name": "HD MILKY", "category": "Finished Goods", "order": "21"},
+                
+                    {"id": "23", "name": "HDFML", "category": "Finished Goods", "order": "22"},
+                
+                    {"id": "24", "name": "PPTBL", "category": "Finished Goods", "order": "23"},
+                
+                    {"id": "25", "name": "PED", "category": "Finished Goods", "order": "24"},
+                
+                    {"id": "26", "name": "NPP", "category": "Finished Goods", "order": "25"},
+                
+                    {"id": "27", "name": "PVC", "category": "Finished Goods", "order": "26"},
+                
+                    {"id": "28", "name": "NEW BRO", "category": "Finished Goods", "order": "27"},
+                
+                    {"id": "29", "name": "\u0022\u0022", "category": "Finished Goods", "order": "28"},
+                
+                    {"id": "30", "name": "TOTAL", "category": "Finished Goods", "order": "29"}
+                
+            ],
+        
+            "2": [
+                
+                    {"id": "31", "name": "RAFIYA", "category": "Finished Goods", "order": "0"},
+                
+                    {"id": "32", "name": "MIX PLASTIC WASTE", "category": "Finished Goods", "order": "1"}
+                
+            ]
+        
+    }
+</script>
+<script id="center-aliases-data" type="application/json">
+    {
+        
+            "1": {
+                
+                    "hd100nat": "RAW MATERIAL",
+                
+                    "hdbl100 gum": "PPDM",
+                
+                    "hd bl100 gum": "HDBL100 GUM",
+                
+                    "asdsddd": "\u0022\u0022"
+                
+            },
+        
+            "2": {
+                
+            }
+        
+    }
+</script>
+
+
+        </main>
+
+    </div>
+
+    <!-- Notification Slide-over Panel -->
+    <div id="notificationPanel" class="fixed inset-y-0 right-0 w-full max-w-sm bg-white dark:bg-[#0a0f18] shadow-2xl z-[9999] transform translate-x-full transition-transform duration-300 flex flex-col border-l border-slate-200 dark:border-slate-800">
+        <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-[#05080f] shrink-0">
+            <h3 class="font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest flex items-center gap-3 text-[11px]">
+                <i class="fa-solid fa-bell text-primary text-sm"></i> Activity Log
+            </h3>
+            <button onclick="toggleNotifications()" class="text-slate-400 hover:text-red-500 transition-colors w-8 h-8 flex items-center justify-center rounded-sm hover:bg-red-500/10 active:scale-95">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-4 bg-slate-50/50 dark:bg-[#05080f]/50" id="notificationList">
+        </div>
+    </div>
+    
+    <div id="notificationOverlay" onclick="toggleNotifications()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9998] hidden opacity-0 transition-opacity duration-300"></div>
+
+    <div id="saveSuccessOverlay" class="fixed inset-0 z-[9999] hidden flex items-center justify-center bg-brand/95 backdrop-blur-md pointer-events-none transition-opacity duration-300 opacity-0">
+        <div class="success-content text-center flex flex-col items-center gap-5 transform transition-all duration-300 scale-95 opacity-0">
+            <img src="/media/logos/lucrologo.png" alt="Lucro" class="w-24 h-24 object-contain spin-heavy drop-shadow-2xl">
+            <h2 class="text-4xl font-bold text-white tracking-widest uppercase">Saved</h2>
+        </div>
+    </div>
+
+    <script src="/static/inventory/js/base.js?v=1.6"></script>
+    
+    <script>
+        // Instant Active Tab Feedback (Fixes the "lag" before page load)
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                // Don't intercept if they are trying to open in a new tab
+                if(e.ctrlKey || e.metaKey) return;
+
+                document.querySelectorAll('.nav-link').forEach(l => {
+                    l.classList.remove('bg-white/10', 'text-white');
+                    l.classList.add('text-white/60');
+                    const icon = l.querySelector('i');
+                    if (icon) icon.classList.remove('text-accent', 'text-primary');
+                });
+
+                this.classList.remove('text-white/60');
+                this.classList.add('bg-white/10', 'text-white');
+                const icon = this.querySelector('i');
+                if (icon) {
+                    icon.classList.add('text-accent');
+                }
+            });
+        });
+
+        // Update global success overlay logic
+        window.showGlobalSuccess = function() {
+            const overlay = document.getElementById('saveSuccessOverlay');
+            if(overlay) {
+                overlay.classList.remove('hidden');
+                setTimeout(() => {
+                    overlay.classList.remove('opacity-0');
+                    overlay.firstElementChild.classList.remove('scale-95', 'opacity-0');
+                    overlay.firstElementChild.classList.add('scale-100', 'opacity-100');
+                }, 10);
+            }
+        };
+
+        function toggleNotifications() {
+            const panel = document.getElementById('notificationPanel');
+            const overlay = document.getElementById('notificationOverlay');
+
+            if (panel.classList.contains('translate-x-full')) {
+                panel.classList.remove('translate-x-full');
+                overlay.classList.remove('hidden');
+                setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+                // Refresh immediately when opened
+                fetchNotifications();
+            } else {
+                panel.classList.add('translate-x-full');
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+            }
+        }
+
+        // --- Notification Polling Logic ---
+        function fetchNotifications() {
+            fetch("/inventory/api/notifications/")
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    // Update badge
+                    const badge = document.getElementById('notif-badge');
+                    const panelCount = document.getElementById('notif-count-panel');
+                    const markAllBtn = document.getElementById('markAllReadBtn');
+                    
+                    if (data.unread_count > 0) {
+                        badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+                        badge.classList.remove('hidden');
+                        
+                        panelCount.textContent = data.unread_count + ' New';
+                        panelCount.classList.remove('hidden');
+                        markAllBtn.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                        panelCount.classList.add('hidden');
+                        markAllBtn.classList.add('hidden');
+                    }
+
+                    // Update list
+                    const list = document.getElementById('notificationList');
+                    list.innerHTML = '';
+
+                    if (data.notifications.length === 0) {
+                        list.innerHTML = '<div class="text-center text-slate-500 mt-10 text-sm">No activity to show.</div>';
+                        return;
+                    }
+
+                    data.notifications.forEach(n => {
+                        let iconClass = "fa-check text-green-500 bg-green-500/10";
+                        if (n.type === 'case2') iconClass = "fa-triangle-exclamation text-red-500 bg-red-500/10";
+                        if (n.type === 'case3') iconClass = "fa-magnifying-glass text-orange-500 bg-orange-500/10";
+                        if (n.type === 'case2_resolved') iconClass = "fa-check-double text-blue-500 bg-blue-500/10";
+
+                        let dot = !n.is_read ? '<div class="w-2 h-2 bg-primary rounded-full shrink-0"></div>' : '';
+                        let opacityClass = n.is_read ? 'opacity-60' : 'opacity-100';
+
+                        // Handle clicking to mark read and navigate
+                        let clickAction = `onclick="handleNotificationClick(${n.id}, ${n.target_id}, '${n.type}')"`;
+
+                        list.innerHTML += `
+                        <div ${clickAction} class="p-3 mb-2 bg-white dark:bg-slate-900 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 flex items-start gap-3 cursor-pointer hover:border-primary transition-colors ${opacityClass}">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${iconClass.split(' ')[2]}">
+                                <i class="fa-solid ${iconClass.split(' ')[0]} ${iconClass.split(' ')[1]} text-xs"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="text-[13px] font-bold text-slate-800 dark:text-slate-200 leading-tight">${n.title}</h4>
+                                <p class="text-[11px] text-slate-500 mt-0.5 leading-snug line-clamp-2">${n.message}</p>
+                                <span class="text-[9px] text-slate-400 mt-1.5 block font-semibold">${n.created_at}</span>
+                            </div>
+                            ${dot}
+                        </div>
+                        `;
+                    });
+                }
+            })
+            .catch(err => console.error("Error fetching notifications:", err));
+        }
+
+        function markAllNotificationsRead() {
+            fetch("/inventory/api/notifications/read/all/", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1]
+                }
+            }).then(() => {
+                fetchNotifications();
+            });
+        }
+
+        function handleNotificationClick(notifId, targetId, type) {
+            // Mark as read
+            fetch(`/inventory/api/notifications/read/${notifId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1]
+                }
+            }).then(() => {
+                toggleNotifications(); // Close panel
+                if (type === 'case1' || type === 'case2_resolved') {
+                    window.location.href = `/inventory/report/${targetId}/`;
+                } else if (type === 'case2' || type === 'case3') {
+                    window.location.href = `/inventory/?load_sheet_id=${targetId}`;
+                }
+            });
+        }
+
+        // Poll every 30 seconds
+        setInterval(fetchNotifications, 30000);
+
+        // Initial fetch on load
+        document.addEventListener('DOMContentLoaded', fetchNotifications);
+    </script>    
+    
+<script src="/static/inventory/js/index.js?v=1780384754"></script>
+
+</body>
+</html>

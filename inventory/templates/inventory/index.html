@@ -133,6 +133,21 @@
                             if (direction === 'down') { this.activeIndex = this.activeIndex < this.filteredCenters.length - 1 ? this.activeIndex + 1 : 0; }
                             else if (direction === 'up') { this.activeIndex = this.activeIndex > 0 ? this.activeIndex - 1 : this.filteredCenters.length - 1; }
                             this.$nextTick(() => { const dropdown = this.$refs.dropdown; if (dropdown && dropdown.children[this.activeIndex]) { dropdown.children[this.activeIndex].scrollIntoView({ block: 'nearest' }); } });
+                        },
+                        async openSavedReport(centerId) {
+                            const dateVal = document.getElementById('dateInput').value;
+                            if(!dateVal) return;
+                            try {
+                                const res = await fetch('/inventory/api/navigate/' + centerId + '/?date=' + dateVal + '&action=exact');
+                                const data = await res.json();
+                                if(data.status === 'success' && data.sheet_id) {
+                                    window.location.href = '/inventory/report/' + data.sheet_id + '/';
+                                } else {
+                                    if(typeof showToast === 'function') showToast('Not Found', 'Saved report could not be located.', 'warning');
+                                }
+                            } catch(e) {
+                                console.error(e);
+                            }
                         }
                     }" 
                     @click.away="centerOpen = false; activeIndex = -1"
@@ -158,7 +173,7 @@
                             <template x-for="(center, index) in filteredCenters" :key="center.id">
                                 <div @click="selectCenter(center)" 
                                      @mouseenter="activeIndex = index"
-                                     class="dropdown-center-item px-4 py-3.5 text-[11px] cursor-pointer border-b border-slate-100 dark:border-slate-800 flex justify-between items-center transition-colors"
+                                     class="dropdown-center-item px-4 py-3.5 text-[11px] cursor-pointer border-b border-slate-100 dark:border-slate-800 flex justify-between items-center transition-colors group"
                                      :class="{
                                         'bg-slate-100 dark:bg-slate-800': activeIndex === index && !uploadedIds.includes(center.id),
                                         'bg-emerald-200 dark:bg-emerald-800/80': activeIndex === index && uploadedIds.includes(center.id),
@@ -170,6 +185,11 @@
                                     <div class="flex items-center gap-2 shrink-0">
                                         <template x-if="supervisorIds.includes(center.id) && !uploadedIds.includes(center.id)">
                                             <i class="fa-solid fa-image text-[12px] text-amber-600 dark:text-amber-400" title="Supervisor uploaded a sheet for this date"></i>
+                                        </template>
+                                        <template x-if="uploadedIds.includes(center.id)">
+                                            <button @click.stop="openSavedReport(center.id)" class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-emerald-300 dark:hover:bg-emerald-700/80 text-emerald-800 dark:text-emerald-200 transition-all shadow-sm" title="Open Saved Report">
+                                                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                            </button>
                                         </template>
                                         <template x-if="center.category">
                                             <span class="px-2 py-1 rounded-sm text-[9px] font-black uppercase tracking-widest shadow-sm border"

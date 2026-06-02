@@ -1289,6 +1289,11 @@ async function handleFileSelectBase(e) {
 }
 
 async function maybeLoadSupervisorSheet(centerId) {
+    if (window.uploadedCenterIds && window.uploadedCenterIds.includes(parseInt(centerId))) {
+        window.isSupervisorPreload = false;
+        hideSupervisorBadge();
+        return;
+    }
     const dateVal = document.getElementById('dateInput').value;
     const sheet = (window.supervisorSheets || {})[centerId];
     if (!sheet || !sheet.image_url || !dateVal) {
@@ -1788,9 +1793,27 @@ async function loadSheetData(sheetId) {
                 const resultsPanel = document.getElementById('results');
                 
                 if (previewImg && placeholder) {
-                    previewImg.src = data.image_url;
-                    previewImg.classList.remove('hidden');
-                    placeholder.classList.add('hidden');
+                    try {
+                        const res = await fetch(data.image_url);
+                        if (!res.ok) throw new Error("HTTP " + res.status);
+                        const blob = await res.blob();
+                        const urlPath = data.image_url.split('?')[0];
+                        const name = urlPath.substring(urlPath.lastIndexOf('/') + 1) || 'review-document';
+                        let mimeType = blob.type;
+                        if (!mimeType || mimeType === 'application/octet-stream') {
+                            mimeType = urlPath.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
+                        }
+                        const file = new File([blob], name, { type: mimeType });
+                        await loadFileIntoPreview(file);
+                    } catch (err) {
+                        console.error("Failed to load image as blob for preview:", err);
+                        // Fallback
+                        previewImg.src = data.image_url;
+                        previewImg.classList.remove('hidden');
+                        placeholder.classList.add('hidden');
+                        currentBase64 = "PRELOADED"; // bypass empty check
+                    }
+                    
                     if (previewContainer) {
                         previewContainer.classList.add('items-center', 'justify-center');
                         previewContainer.classList.remove('overflow-y-auto', 'block');
@@ -1799,7 +1822,6 @@ async function loadSheetData(sheetId) {
                         resultsPanel.classList.remove('hidden');
                     }
                 }
-                currentBase64 = "PRELOADED"; // bypass empty check
             }
 
             // 4. Parse Extracted Data
