@@ -134,7 +134,7 @@ def compress_file_if_needed(file_field, max_size=1024 * 1024):
         except Exception as e:
             print(f"Error compressing image {file_field.name}: {e}")
         finally:
-            file_field.close()
+            file_field.seek(0)
 
     elif ext == '.pdf':
         try:
@@ -169,4 +169,4 @@ def compress_file_if_needed(file_field, max_size=1024 * 1024):
         except Exception as e:
             print(f"Error compressing PDF {file_field.name}: {e}")
         finally:
-            file_field.close()
+            file_field.seek(0)

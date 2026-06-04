@@ -2921,4 +2921,7 @@ def daily_report_view(request):
         'item_rows': item_rows,
         'grand_rm': data.get('grand_rm', 0),
         'grand_fg': data.get('grand_fg', 0),
+        'centers': data.get('centers', []),
+        'summaries': data.get('summaries', []),
+        'detailed_rows': data.get('detailed_rows', []),
     })

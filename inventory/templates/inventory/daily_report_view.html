@@ -44,65 +44,9 @@
             {% endfor %}
         ]
     };
-
-    function reportApp() {
-        const data = window.REPORT_DATA;
-        const centersData = data.centers.map((c, index) => {
-            const summary = data.summaries[index] || { rm_total: 0, fg_total: 0, total: 0 };
-            return {
-                id: c.name, name: c.name, category: c.category,
-                is_carried_over: c.is_carried_over, copied_from_date: c.copied_from_date,
-                rm_total: summary.rm_total, fg_total: summary.fg_total, total: summary.total,
-                raw: [], finish: []
-            };
-        });
-
-        const rawItems = data.detailed_rows.map((row, idx) => {
-            const itemObj = { id: 'item-'+idx, name: row.name, category: row.category, total: 0, centers: [] };
-            row.cols.forEach((qty, colIdx) => {
-                if (qty > 0 && centersData[colIdx]) {
-                    itemObj.centers.push({ name: centersData[colIdx].name, category: centersData[colIdx].category, qty: qty });
-                }
-            });
-            return itemObj;
-        });
-
-        rawItems.forEach(item => {
-            let sum = 0;
-            item.centers.forEach(c => sum += c.qty);
-            item.total = sum;
-            const isRaw = item.category.includes('RAW');
-            item.centers.forEach(c => {
-                let centerObj = centersData.find(x => x.name === c.name);
-                if (centerObj) {
-                    if(isRaw) centerObj.raw.push({ name: item.name, qty: c.qty });
-                    else centerObj.finish.push({ name: item.name, qty: c.qty });
-                }
-            });
-        });
-
-        return {
-            viewMode: 'center', activeFilter: 'ALL', search: '', selected: null,
-            centerList: centersData, itemList: rawItems,
-            get filteredList() {
-                const source = this.viewMode === 'center' ? this.centerList : this.itemList;
-                const searchUpper = this.search.toUpperCase();
-                return source.filter(i => {
-                    const matchesSearch = !this.search || i.name.includes(searchUpper);
-                    const matchesFilter = this.viewMode !== 'center' || this.activeFilter === 'ALL' || i.category === this.activeFilter;
-                    return matchesSearch && matchesFilter;
-                });
-            },
-            get dynamicRM() { return this.viewMode === 'item' ? data.grand_rm : this.filteredList.reduce((sum, item) => sum + (item.rm_total || 0), 0); },
-            get dynamicFG() { return this.viewMode === 'item' ? data.grand_fg : this.filteredList.reduce((sum, item) => sum + (item.fg_total || 0), 0); },
-            get dynamicTotal() { return this.dynamicRM + this.dynamicFG; },
-            switchMode(mode) { this.viewMode = mode; this.selected = null; this.search = ''; },
-            selectItem(item) { this.selected = item; }
-        };
-    }
 </script>
 
-<div x-data="reportApp()" class="flex flex-col-reverse md:flex-row h-full w-full bg-white dark:bg-[#0a0f18] rounded-md shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden" style="min-height: calc(100vh - 6rem);">
+<div x-data="reportApp" class="flex flex-col-reverse md:flex-row h-full w-full bg-white dark:bg-[#0a0f18] rounded-md shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden" style="min-height: calc(100vh - 6rem);">
     
     <div class="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#0a0f18] relative z-0 order-2 md:order-1">
         
