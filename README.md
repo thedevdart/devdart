@@ -46,7 +46,7 @@ git init
 git add .
 git commit -m "Initial commit: DevDart portfolio site"
 git branch -M main
-git remote add origin https://github.com/<your-username>/<repo-name>.git
+git remote add origin https://github.com/thedevdart/devdart.git
 git push -u origin main
 ```
 
