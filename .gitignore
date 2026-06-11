@@ -17,9 +17,11 @@ db.sqlite3
 .env
 .env.*
 !.env.example
-
 # Editor / OS
 .vscode/
 .idea/
 *.swp
 .DS_Store
+
+# Abandoned local mobile shell (not part of this PR)
+supervisor-mobile/

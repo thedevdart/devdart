@@ -105,9 +105,12 @@
 
     </div>
 
-    <footer class="p-4 md:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-brand text-center shrink-0">
+    <footer class="p-4 md:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-brand text-center shrink-0 space-y-2">
+        <p class="text-[9px] md:text-[10px] font-bold text-primary uppercase tracking-widest">
+            <a href="{% url 'supervisor_app' %}" class="hover:underline">Use the Supervisor App</a> for pairing + daily reminders
+        </p>
         <p class="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-1.5">
-            <i class="fa-solid fa-lock text-slate-300 dark:text-slate-600"></i> Private link to {{ center.name }}. Do not share.
+            <i class="fa-solid fa-lock text-slate-300 dark:text-slate-600"></i> Legacy link for {{ center.name }}
         </p>
     </footer>
 </div>

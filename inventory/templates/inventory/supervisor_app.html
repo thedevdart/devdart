@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#FF8965">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Lucro Supervisor</title>
+    <link rel="manifest" href="{% url 'supervisor_manifest' %}">
+    <link rel="icon" href="/favicon.png" type="image/png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: '#0a0f18',
+                        primary: '#FF8965',
+                        accent: '#96CD1E',
+                    },
+                },
+            },
+        };
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-50 dark:bg-brand text-slate-800 dark:text-slate-200 antialiased font-sans min-h-screen flex justify-center">
+
+<div id="app" class="w-full max-w-lg min-h-screen flex flex-col bg-white dark:bg-[#05080f] md:min-h-[700px] md:my-8 md:rounded-md md:shadow-2xl md:border border-slate-200 dark:border-slate-800 overflow-hidden relative">
+
+    <!-- Pair screen -->
+    <div id="pair-screen" class="flex-1 flex flex-col p-6">
+        <header class="mb-8 pt-4">
+            <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Lucro Supervisor App</p>
+            <h1 class="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Pair your device</h1>
+            <p class="text-xs text-slate-500 mt-2 font-medium">Enter the one-time code from your admin. You only do this once.</p>
+        </header>
+        <div class="flex-1 flex flex-col justify-center gap-4">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Pairing code</label>
+            <input type="text" id="pair-code" inputmode="text" autocapitalize="characters" autocomplete="one-time-code"
+                   placeholder="e.g. AB12CD34"
+                   class="w-full px-4 py-4 border border-slate-300 dark:border-slate-700 rounded-sm bg-slate-50 dark:bg-brand text-slate-900 dark:text-white text-lg font-black uppercase tracking-widest text-center focus:border-primary outline-none">
+            <button type="button" id="pair-btn"
+                    class="w-full py-4 bg-primary hover:bg-primary/90 text-white rounded-sm font-black uppercase tracking-widest text-[11px] transition-all active:scale-[0.98] shadow-sm">
+                Pair device
+            </button>
+            <p id="pair-error" class="hidden text-[11px] font-bold text-red-500 text-center uppercase tracking-wider"></p>
+        </div>
+        <footer class="pt-8 text-center">
+            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                Open <span class="text-primary">/inventory/supervisor/</span> — not the old upload link
+            </p>
+        </footer>
+    </div>
+
+    <!-- Notification gate (blocking modal after pair) -->
+    <div id="notify-gate" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
+        <div class="bg-white dark:bg-[#0a0f18] w-full max-w-sm rounded-md p-6 border border-slate-200 dark:border-slate-700 shadow-2xl">
+            <div class="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
+                <i class="fa-solid fa-bell text-xl"></i>
+            </div>
+            <h2 class="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight mb-2">Enable notifications</h2>
+            <p class="text-xs text-slate-500 font-medium mb-6">Get a daily reminder to upload yesterday's stock sheet. Tap below and choose <strong>Allow</strong>.</p>
+            <button type="button" id="enable-notify-btn"
+                    class="w-full py-4 bg-primary hover:bg-primary/90 text-white rounded-sm font-black uppercase tracking-widest text-[11px] mb-3">
+                Enable notifications
+            </button>
+            <button type="button" id="skip-notify-btn"
+                    class="w-full py-3 text-slate-500 font-bold uppercase tracking-widest text-[10px]">
+                Skip for now
+            </button>
+            <p id="notify-error" class="hidden mt-3 text-[10px] font-bold text-red-500 text-center"></p>
+        </div>
+    </div>
+
+    <!-- Main upload screen -->
+    <div id="main-screen" class="hidden flex-1 flex flex-col">
+        <header class="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-brand shrink-0">
+            <div>
+                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Lucro Supervisor</p>
+                <h1 id="center-name" class="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">—</h1>
+            </div>
+            <div id="center-badge" class="w-10 h-10 rounded-sm bg-primary/10 text-primary font-black flex items-center justify-center border border-primary/20 text-sm shrink-0">—</div>
+        </header>
+
+        <main class="p-6 flex-1 flex flex-col gap-6">
+            <div id="upload-disabled-banner" class="hidden px-4 py-3 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-[10px] font-black uppercase tracking-widest">
+                Upload not enabled — ask admin to generate an upload link for your center.
+            </div>
+
+            <form id="upload-form" class="flex flex-col gap-6 flex-1">
+                <div class="space-y-2">
+                    <label for="date" class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 block">Date of this sheet</label>
+                    <div class="relative flex items-center">
+                        <i class="fa-regular fa-calendar absolute left-4 top-1/2 -translate-y-1/2 text-primary z-10 pointer-events-none"></i>
+                        <input type="date" id="date" name="date" required
+                               class="w-full pl-11 pr-4 py-3.5 border border-slate-300 dark:border-slate-700 rounded-sm bg-slate-50 dark:bg-brand text-slate-900 dark:text-white text-[11px] font-black uppercase tracking-widest focus:border-primary outline-none shadow-inner">
+                    </div>
+                </div>
+
+                <div class="space-y-2 flex-1 flex flex-col">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 block">Stock sheet</label>
+                    <label id="file-card" class="relative border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-md p-8 flex-1 flex flex-col items-center justify-center bg-slate-50 dark:bg-brand transition-all cursor-pointer group active:scale-[0.98] min-h-[180px]">
+                        <input type="file" id="sheet-input" name="sheet" accept="image/jpeg,image/png,image/heic,image/heif,application/pdf" capture="environment" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" required>
+                        <i id="file-icon" class="fa-solid fa-camera text-4xl text-slate-300 group-hover:text-primary transition-colors mb-3"></i>
+                        <span id="file-primary" class="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest text-center">Take photo of sheet</span>
+                        <span id="file-secondary" class="text-[9px] font-bold text-slate-500 mt-1.5 uppercase tracking-widest text-center">or tap to choose photo / PDF</span>
+                    </label>
+                </div>
+
+                <button type="submit" id="submit-btn" class="w-full py-4 bg-primary hover:bg-primary/90 text-white rounded-sm font-black uppercase tracking-widest text-[11px] transition-all active:scale-[0.98] shadow-sm disabled:opacity-50">
+                    Submit sheet
+                </button>
+                <div id="msg" class="hidden" role="alert"></div>
+            </form>
+        </main>
+
+        <aside class="border-t border-slate-200 dark:border-slate-800 p-6 bg-slate-50 dark:bg-[#0a0f18] shrink-0">
+            <h2 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Recent uploads</h2>
+            <div id="recent-list" class="flex flex-col gap-2 max-h-40 overflow-y-auto"></div>
+        </aside>
+
+        <footer class="p-4 border-t border-slate-200 dark:border-slate-800 text-center shrink-0">
+            <button type="button" id="unpair-btn" class="text-[9px] font-bold text-slate-400 uppercase tracking-widest hover:text-red-500">Unpair this device</button>
+        </footer>
+    </div>
+</div>
+
+<script>
+(function() {
+    const STORAGE_KEY = '{{ local_storage_key }}';
+    const DEVICE_HEADER = '{{ device_token_header }}';
+    const API = {
+        pair: '{% url "supervisor_api_pair" %}',
+        session: '{% url "supervisor_api_session" %}',
+        upload: '{% url "supervisor_api_upload" %}',
+        pushConfig: '{% url "supervisor_api_push_config" %}',
+        registerPush: '{% url "supervisor_api_register_push" %}',
+    };
+    const SW_URL = '{% url "supervisor_sw" %}';
+
+    const pairScreen = document.getElementById('pair-screen');
+    const mainScreen = document.getElementById('main-screen');
+    const notifyGate = document.getElementById('notify-gate');
+    const pairCode = document.getElementById('pair-code');
+    const pairBtn = document.getElementById('pair-btn');
+    const pairError = document.getElementById('pair-error');
+    const enableNotifyBtn = document.getElementById('enable-notify-btn');
+    const skipNotifyBtn = document.getElementById('skip-notify-btn');
+    const notifyError = document.getElementById('notify-error');
+    const uploadForm = document.getElementById('upload-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const msg = document.getElementById('msg');
+    const fileInput = document.getElementById('sheet-input');
+    const fileCard = document.getElementById('file-card');
+    const dateInput = document.getElementById('date');
+    const centerNameEl = document.getElementById('center-name');
+    const centerBadge = document.getElementById('center-badge');
+    const recentList = document.getElementById('recent-list');
+    const uploadDisabledBanner = document.getElementById('upload-disabled-banner');
+    const unpairBtn = document.getElementById('unpair-btn');
+
+    let session = null;
+    let vapidPublicKey = null;
+
+    function getToken() {
+        return localStorage.getItem(STORAGE_KEY);
+    }
+
+    function setToken(token) {
+        if (token) localStorage.setItem(STORAGE_KEY, token);
+        else localStorage.removeItem(STORAGE_KEY);
+    }
+
+    function authHeaders(json) {
+        const h = { [DEVICE_HEADER]: getToken() || '' };
+        if (json) h['Content-Type'] = 'application/json';
+        return h;
+    }
+
+    function showPair() {
+        pairScreen.classList.remove('hidden');
+        mainScreen.classList.add('hidden');
+        notifyGate.classList.add('hidden');
+    }
+
+    function showMain() {
+        pairScreen.classList.add('hidden');
+        mainScreen.classList.remove('hidden');
+        mainScreen.classList.add('flex');
+    }
+
+    function showMsg(text, isError) {
+        msg.textContent = text;
+        msg.className = isError
+            ? 'px-4 py-3 rounded-md text-[11px] font-black uppercase tracking-widest border bg-red-50 text-red-600 border-red-200 flex items-center gap-2'
+            : 'px-4 py-3 rounded-md text-[11px] font-black uppercase tracking-widest border bg-emerald-50 text-emerald-600 border-emerald-200 flex items-center gap-2';
+        msg.style.display = 'flex';
+    }
+
+    function renderSession(data) {
+        session = data;
+        centerNameEl.textContent = data.center_name;
+        centerBadge.textContent = (data.center_name || '—').slice(0, 2).toUpperCase();
+        dateInput.value = data.default_date;
+        dateInput.min = data.allowed_dates[data.allowed_dates.length - 1];
+        dateInput.max = data.today;
+        document.getElementById('file-secondary').textContent =
+            'or tap to choose photo / PDF (max ' + data.max_file_mb + ' MB)';
+
+        if (!data.upload_token_active) {
+            uploadDisabledBanner.classList.remove('hidden');
+            submitBtn.disabled = true;
+        } else {
+            uploadDisabledBanner.classList.add('hidden');
+            submitBtn.disabled = false;
+        }
+
+        recentList.innerHTML = '';
+        if (!data.recent_uploads || !data.recent_uploads.length) {
+            recentList.innerHTML = '<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No uploads yet.</p>';
+        } else {
+            data.recent_uploads.forEach(function(s) {
+                const row = document.createElement('div');
+                row.className = 'flex justify-between items-center p-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#05080f] text-[10px] font-black uppercase tracking-widest';
+                const label = document.createElement('span');
+                label.textContent = s.date;
+                const badge = document.createElement('span');
+                badge.className = s.is_reviewed
+                    ? 'px-2 py-0.5 rounded-sm bg-emerald-100 text-emerald-700 text-[8px]'
+                    : 'px-2 py-0.5 rounded-sm bg-amber-100 text-amber-700 text-[8px]';
+                badge.textContent = s.is_reviewed ? 'Reviewed' : 'Awaiting';
+                row.appendChild(label);
+                row.appendChild(badge);
+                recentList.appendChild(row);
+            });
+        }
+    }
+
+    async function loadSession() {
+        const res = await fetch(API.session, { headers: authHeaders(), credentials: 'same-origin' });
+        if (!res.ok) {
+            setToken(null);
+            showPair();
+            return null;
+        }
+        const data = await res.json();
+        renderSession(data);
+        showMain();
+        return data;
+    }
+
+    async function registerServiceWorker() {
+        if (!('serviceWorker' in navigator)) return null;
+        try {
+            return await navigator.serviceWorker.register(SW_URL, { scope: '/inventory/supervisor/' });
+        } catch (e) {
+            console.warn('SW register failed', e);
+            return null;
+        }
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const raw = atob(base64);
+        const arr = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+        return arr;
+    }
+
+    async function subscribePush() {
+        const reg = await registerServiceWorker();
+        if (!reg || !('PushManager' in window)) throw new Error('Push not supported on this browser.');
+
+        if (!vapidPublicKey) {
+            const cfgRes = await fetch(API.pushConfig);
+            const cfg = await cfgRes.json();
+            if (!cfgRes.ok || !cfg.publicKey) throw new Error(cfg.error || 'Push not configured.');
+            vapidPublicKey = cfg.publicKey;
+        }
+
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+            sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+            });
+        }
+
+        const saveRes = await fetch(API.registerPush, {
+            method: 'POST',
+            headers: authHeaders(true),
+            credentials: 'same-origin',
+            body: JSON.stringify({ subscription: sub.toJSON() }),
+        });
+        const saveData = await saveRes.json();
+        if (!saveRes.ok || !saveData.ok) throw new Error(saveData.error || 'Failed to save subscription.');
+        return true;
+    }
+
+    function maybeShowNotifyGate(data) {
+        if (data && data.has_push_subscription) {
+            notifyGate.classList.add('hidden');
+            return;
+        }
+        if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+            notifyGate.classList.add('hidden');
+            return;
+        }
+        notifyGate.classList.remove('hidden');
+    }
+
+    enableNotifyBtn.addEventListener('click', async function() {
+        notifyError.classList.add('hidden');
+        enableNotifyBtn.disabled = true;
+        enableNotifyBtn.textContent = 'Requesting...';
+        try {
+            const perm = await Notification.requestPermission();
+            if (perm !== 'granted') {
+                throw new Error('Permission denied. Enable notifications in browser settings to get reminders.');
+            }
+            await subscribePush();
+            notifyGate.classList.add('hidden');
+            await loadSession();
+        } catch (e) {
+            notifyError.textContent = e.message || 'Could not enable notifications.';
+            notifyError.classList.remove('hidden');
+        } finally {
+            enableNotifyBtn.disabled = false;
+            enableNotifyBtn.textContent = 'Enable notifications';
+        }
+    });
+
+    skipNotifyBtn.addEventListener('click', function() {
+        notifyGate.classList.add('hidden');
+    });
+
+    pairBtn.addEventListener('click', async function() {
+        pairError.classList.add('hidden');
+        const code = (pairCode.value || '').trim();
+        if (!code) {
+            pairError.textContent = 'Enter the pairing code.';
+            pairError.classList.remove('hidden');
+            return;
+        }
+        pairBtn.disabled = true;
+        pairBtn.textContent = 'Pairing...';
+        try {
+            const res = await fetch(API.pair, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ code: code }),
+            });
+            const raw = await res.text();
+            let data = {};
+            try { data = raw ? JSON.parse(raw) : {}; } catch (e) {
+                throw new Error('Server error during pairing. Refresh and try a new code from admin.');
+            }
+            if (!res.ok || !data.ok) throw new Error(data.error || 'Pairing failed.');
+            setToken(data.device_token);
+            renderSession(data.session);
+            showMain();
+            maybeShowNotifyGate(data.session);
+        } catch (e) {
+            pairError.textContent = e.message || 'Pairing failed.';
+            pairError.classList.remove('hidden');
+        } finally {
+            pairBtn.disabled = false;
+            pairBtn.textContent = 'Pair device';
+        }
+    });
+
+    fileInput.addEventListener('change', function() {
+        if (!fileInput.files || !fileInput.files[0]) return;
+        const f = fileInput.files[0];
+        document.getElementById('file-icon').className = 'fa-solid fa-file-circle-check text-4xl text-primary mb-3';
+        document.getElementById('file-primary').textContent = f.name;
+        document.getElementById('file-secondary').textContent = (f.size / 1024 / 1024).toFixed(1) + ' MB · TAP TO CHANGE';
+    });
+
+    uploadForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        msg.style.display = 'none';
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Uploading...';
+        const fd = new FormData(uploadForm);
+        try {
+            const res = await fetch(API.upload, {
+                method: 'POST',
+                headers: authHeaders(),
+                credentials: 'same-origin',
+                body: fd,
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                showMsg(data.message || 'Uploaded.', false);
+                submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> Done';
+                setTimeout(function() { loadSession(); uploadForm.reset(); submitBtn.disabled = false; submitBtn.textContent = 'Submit sheet'; }, 1800);
+            } else {
+                showMsg(data.error || 'Upload failed.', true);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit sheet';
+            }
+        } catch (err) {
+            showMsg('Network error. Check your connection.', true);
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit sheet';
+        }
+    });
+
+    unpairBtn.addEventListener('click', function() {
+        if (!confirm('Unpair this device? You will need a new pairing code to upload again.')) return;
+        setToken(null);
+        showPair();
+        pairCode.value = '';
+    });
+
+    (async function init() {
+        await registerServiceWorker();
+        if (getToken()) {
+            const data = await loadSession();
+            if (data) maybeShowNotifyGate(data);
+        } else {
+            showPair();
+        }
+    })();
+})();
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views, supervisor_pwa
 
 urlpatterns = [
     # --- 1. Core & Dashboard ---
@@ -88,11 +88,22 @@ urlpatterns = [
     path('api/custom-report/items/', views.api_get_report_items, name='api_get_custom_report_items'),
     path('api/custom-report/generate/', views.api_generate_custom_report, name='api_generate_custom_report'),
     path('api/custom-report/export/', views.export_custom_report_excel, name='api_export_custom_report'),
-    # Supervisor self-service upload (PR #2)
+    # Supervisor self-service upload (PR #2) + PWA
+    path('supervisor/', supervisor_pwa.supervisor_app, name='supervisor_app'),
+    path('supervisor/sw.js', supervisor_pwa.supervisor_service_worker, name='supervisor_sw'),
+    path('supervisor/manifest.webmanifest', supervisor_pwa.supervisor_manifest, name='supervisor_manifest'),
     path('upload/<str:token>/', views.supervisor_upload_page, name='supervisor_upload_page'),
     path('upload/<str:token>/submit/', views.supervisor_upload_submit, name='supervisor_upload_submit'),
+    path('api/supervisor/pair/', supervisor_pwa.api_pair, name='supervisor_api_pair'),
+    path('api/supervisor/session/', supervisor_pwa.api_session, name='supervisor_api_session'),
+    path('api/supervisor/upload/', supervisor_pwa.api_upload, name='supervisor_api_upload'),
+    path('api/supervisor/push-config/', supervisor_pwa.api_push_config, name='supervisor_api_push_config'),
+    path('api/supervisor/register-push/', supervisor_pwa.api_register_push, name='supervisor_api_register_push'),
+    path('api/supervisor/reminder-settings/', supervisor_pwa.api_save_reminder_settings, name='supervisor_reminder_settings'),
     path('api/manage-centers/<int:center_id>/upload-token/generate/', views.admin_generate_upload_token, name='admin_generate_upload_token'),
     path('api/manage-centers/<int:center_id>/upload-token/disable/', views.admin_disable_upload_token, name='admin_disable_upload_token'),
+    path('api/manage-centers/<int:center_id>/pairing-code/generate/', supervisor_pwa.admin_generate_pairing_code, name='admin_generate_pairing_code'),
+    path('api/manage-centers/<int:center_id>/devices/<int:device_id>/remove/', supervisor_pwa.admin_remove_supervisor_device, name='admin_remove_supervisor_device'),
     # Dynamic Daily Report View (PR #6)
     path('daily-report-view/', views.daily_report_view, name='daily_report_view'),
 ]

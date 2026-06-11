@@ -228,3 +228,109 @@ class CenterUploadToken(models.Model):
             },
         )
         return obj
+
+
+class CenterPairingCode(models.Model):
+    """One-time code for pairing a supervisor phone to a center."""
+
+    center = models.ForeignKey(Center, on_delete=models.CASCADE, related_name='pairing_codes')
+    code = models.CharField(max_length=12, db_index=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    used_by_device = models.ForeignKey(
+        'SupervisorDevice', on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Pairing code for {self.center.name}"
+
+    @property
+    def is_used(self):
+        return self.used_at is not None
+
+    @property
+    def is_valid(self):
+        from django.utils import timezone
+        return not self.is_used and self.expires_at > timezone.now()
+
+    @classmethod
+    def create_for(cls, center, valid_hours=48):
+        import secrets
+        from datetime import timedelta
+        from django.utils import timezone
+        alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+        code_str = ''.join(secrets.choice(alphabet) for _ in range(8))
+        return cls.objects.create(
+            center=center,
+            code=code_str,
+            expires_at=timezone.now() + timedelta(hours=valid_hours),
+        )
+
+
+class SupervisorDevice(models.Model):
+    """A supervisor phone paired to one center via the PWA."""
+
+    center = models.ForeignKey(Center, on_delete=models.CASCADE, related_name='supervisor_devices')
+    device_token = models.CharField(max_length=64, unique=True, db_index=True)
+    fcm_token = models.TextField(default='', blank=True)
+    push_subscription = models.JSONField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    paired_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    last_reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    label = models.CharField(max_length=100, blank=True, default='')
+
+    class Meta:
+        ordering = ['-paired_at']
+
+    def __str__(self):
+        return f"Supervisor device for {self.center.name}"
+
+    @classmethod
+    def create_for_center(cls, center, user_agent=''):
+        import secrets
+        return cls.objects.create(
+            center=center,
+            device_token=secrets.token_urlsafe(24),
+            label=(user_agent or '')[:100],
+        )
+
+
+class SupervisorReminderSettings(models.Model):
+    """Global schedule for automatic upload reminder notifications."""
+
+    is_enabled = models.BooleanField(default=False)
+    start_time = models.TimeField(help_text='First reminder of the day (Asia/Kolkata)')
+    interval_hours = models.PositiveSmallIntegerField(default=2)
+    deadline_time = models.TimeField(help_text='Stop reminding after this time each day')
+    lookback_days = models.PositiveSmallIntegerField(
+        default=7,
+        help_text='How many past days to check for missing sheets',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Supervisor reminder settings'
+        verbose_name_plural = 'Supervisor reminder settings'
+
+    def __str__(self):
+        status = 'on' if self.is_enabled else 'off'
+        return f'Supervisor reminders ({status})'
+
+    @classmethod
+    def get(cls):
+        from datetime import time
+        obj, _ = cls.objects.get_or_create(
+            pk=1,
+            defaults={
+                'start_time': time(8, 0),
+                'interval_hours': 2,
+                'deadline_time': time(14, 0),
+                'lookback_days': 7,
+            },
+        )
+        return obj

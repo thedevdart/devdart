@@ -9,3 +9,4 @@ requests
 Pillow
 gunicorn
 pypdf==6.12.2
+pywebpush

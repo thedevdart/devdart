@@ -139,7 +139,7 @@
     </div>
     {% endif %}
 
-    <div class="bg-white dark:bg-[#0a0f18] rounded-md shadow-sm border border-slate-200 dark:border-slate-800 overflow-x-auto custom-scrollbar transition-colors duration-300 pb-24">
+    <div class="bg-white dark:bg-[#0a0f18] rounded-md shadow-sm border border-slate-200 dark:border-slate-800 overflow-x-auto custom-scrollbar transition-colors duration-300 mb-8">
         <table class="w-full text-left text-sm border-collapse min-w-[800px]">
             <thead class="bg-slate-50 dark:bg-[#05080f] text-slate-500 dark:text-slate-400 uppercase text-[9px] font-black tracking-widest border-b border-slate-200 dark:border-slate-800">
                 <tr>
@@ -253,6 +253,180 @@
             </tbody>
         </table>
     </div>
+
+    <!-- Upload reminder schedule -->
+    <div class="bg-white dark:bg-[#0a0f18] border border-slate-200 dark:border-slate-800 rounded-md p-6 lg:p-8 mb-8 shadow-sm transition-colors duration-300"
+         id="reminder-settings-panel"
+         data-save-url="{% url 'supervisor_reminder_settings' %}">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div>
+                <h3 class="font-black text-slate-800 dark:text-slate-200 flex items-center gap-2 text-xs uppercase tracking-widest">
+                    <i class="fa-solid fa-bell text-primary"></i> Upload reminder notifications
+                </h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2 max-w-2xl">
+                    Automatically notifies paired supervisors about missing stock sheets (yesterday or several days back).
+                    Runs between start and deadline each day, repeating at your chosen interval.
+                </p>
+            </div>
+            <label class="inline-flex items-center gap-3 cursor-pointer shrink-0">
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Enabled</span>
+                <input type="checkbox" id="reminder-enabled" class="w-4 h-4 accent-primary" {% if reminder_settings.is_enabled %}checked{% endif %}>
+            </label>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div class="space-y-1">
+                <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Start sending at</label>
+                <input type="time" id="reminder-start" value="{{ reminder_settings.start_time|time:'H:i' }}"
+                       class="w-full p-2.5 bg-slate-50 dark:bg-[#05080f] border border-slate-300 dark:border-slate-700 rounded-md focus:border-primary outline-none text-slate-900 dark:text-white text-sm font-bold">
+            </div>
+            <div class="space-y-1">
+                <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Repeat every (hours)</label>
+                <input type="number" id="reminder-interval" min="1" max="24" value="{{ reminder_settings.interval_hours }}"
+                       class="w-full p-2.5 bg-slate-50 dark:bg-[#05080f] border border-slate-300 dark:border-slate-700 rounded-md focus:border-primary outline-none text-slate-900 dark:text-white text-sm font-bold">
+            </div>
+            <div class="space-y-1">
+                <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Upload deadline</label>
+                <input type="time" id="reminder-deadline" value="{{ reminder_settings.deadline_time|time:'H:i' }}"
+                       class="w-full p-2.5 bg-slate-50 dark:bg-[#05080f] border border-slate-300 dark:border-slate-700 rounded-md focus:border-primary outline-none text-slate-900 dark:text-white text-sm font-bold">
+            </div>
+            <div class="space-y-1">
+                <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Look back (days)</label>
+                <input type="number" id="reminder-lookback" min="1" max="30" value="{{ reminder_settings.lookback_days }}"
+                       class="w-full p-2.5 bg-slate-50 dark:bg-[#05080f] border border-slate-300 dark:border-slate-700 rounded-md focus:border-primary outline-none text-slate-900 dark:text-white text-sm font-bold">
+            </div>
+        </div>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest max-w-xl">
+                Schedule server job every 15–30 min: <code class="text-primary">python manage.py send_supervisor_reminders</code>
+            </p>
+            <button type="button" id="save-reminder-btn"
+                    class="bg-primary hover:bg-primary/90 text-white font-black py-2.5 px-6 rounded-md shadow-sm transition-all text-[11px] uppercase tracking-widest shrink-0">
+                Save reminder settings
+            </button>
+        </div>
+        <p id="reminder-save-msg" class="hidden mt-3 text-[10px] font-black uppercase tracking-widest"></p>
+    </div>
+
+    <!-- Supervisor PWA pairing -->
+    <div class="bg-white dark:bg-[#0a0f18] border border-slate-200 dark:border-slate-800 rounded-md shadow-sm mb-8 overflow-x-auto custom-scrollbar transition-colors duration-300">
+        <div class="p-6 lg:p-8 border-b border-slate-100 dark:border-slate-800">
+            <h3 class="font-black text-slate-800 dark:text-slate-200 flex items-center gap-2 text-xs uppercase tracking-widest">
+                <i class="fa-solid fa-mobile-screen text-primary"></i> Supervisor app pairing
+            </h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">
+                Supervisors open <a href="{% url 'supervisor_app' %}" class="text-primary hover:underline font-bold">{{ supervisor_app_url }}</a>,
+                pair once with a code, and enable notifications. Survives upload link rotation.
+            </p>
+        </div>
+        <table class="w-full text-left text-sm border-collapse min-w-[700px]">
+            <thead class="bg-slate-50 dark:bg-[#05080f] text-slate-500 dark:text-slate-400 uppercase text-[9px] font-black tracking-widest border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                    <th class="px-5 py-4 border-r border-slate-200 dark:border-slate-800">Center</th>
+                    <th class="px-5 py-4 border-r border-slate-200 dark:border-slate-800">Paired devices</th>
+                    <th class="px-5 py-4 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50 text-slate-700 dark:text-slate-300">
+            {% for center in centers %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                    <td class="px-5 py-3 border-r border-slate-200 dark:border-slate-800 font-black uppercase text-[11px] tracking-wider text-slate-800 dark:text-slate-200">{{ center.name }}</td>
+                    <td class="px-5 py-3 border-r border-slate-200 dark:border-slate-800">
+                        {% for device in center.supervisor_devices.all %}
+                            <div class="flex flex-wrap items-center gap-2 mb-2 last:mb-0 text-[11px] font-bold">
+                                <span class="text-slate-600 dark:text-slate-400">{{ device.paired_at|date:"j M Y, H:i" }}</span>
+                                {% if device.push_subscription %}
+                                    <span class="px-1.5 py-0.5 rounded-sm bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider">Notifications on</span>
+                                {% else %}
+                                    <span class="px-1.5 py-0.5 rounded-sm bg-slate-100 text-slate-500 dark:bg-slate-800 text-[9px] font-black uppercase tracking-wider">No notifications</span>
+                                {% endif %}
+                                <button type="button"
+                                        data-remove-url="{% url 'admin_remove_supervisor_device' center_id=center.id device_id=device.id %}"
+                                        onclick="removeSupervisorDevice(this)"
+                                        class="text-slate-400 hover:text-red-500 hover:bg-red-500/10 px-2 py-1 rounded-sm text-[10px] font-black uppercase tracking-wider transition-colors">
+                                    Remove
+                                </button>
+                            </div>
+                        {% empty %}
+                            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">None paired</span>
+                        {% endfor %}
+                    </td>
+                    <td class="px-5 py-3 text-right">
+                        <button type="button"
+                                data-pair-url="{% url 'admin_generate_pairing_code' center_id=center.id %}"
+                                onclick="generatePairingCode(this, {{ center.id }})"
+                                class="bg-brand hover:bg-brand/90 text-white font-black py-2 px-4 rounded-md shadow-sm transition-all text-[10px] uppercase tracking-widest">
+                            Generate pairing code
+                        </button>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Legacy upload token links -->
+    <div class="bg-white dark:bg-[#0a0f18] border border-slate-200 dark:border-slate-800 rounded-md shadow-sm mb-8 overflow-x-auto custom-scrollbar transition-colors duration-300">
+        <div class="p-6 lg:p-8 border-b border-slate-100 dark:border-slate-800">
+            <h3 class="font-black text-slate-800 dark:text-slate-200 flex items-center gap-2 text-xs uppercase tracking-widest">
+                <i class="fa-solid fa-link text-slate-400"></i> Supervisor upload links
+            </h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">
+                Token URLs for centers not on the app. PWA uploads use the active token internally — generate a link so uploads are enabled.
+            </p>
+        </div>
+        <table class="w-full text-left text-sm border-collapse min-w-[800px]">
+            <thead class="bg-slate-50 dark:bg-[#05080f] text-slate-500 dark:text-slate-400 uppercase text-[9px] font-black tracking-widest border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                    <th class="px-5 py-4 border-r border-slate-200 dark:border-slate-800">Center</th>
+                    <th class="px-5 py-4 border-r border-slate-200 dark:border-slate-800">Status</th>
+                    <th class="px-5 py-4 border-r border-slate-200 dark:border-slate-800">Last activity</th>
+                    <th class="px-5 py-4 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50 text-slate-700 dark:text-slate-300">
+            {% for center in centers %}
+                <tr id="upload-row-{{ center.id }}" class="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                    <td class="px-5 py-3 border-r border-slate-200 dark:border-slate-800 font-black uppercase text-[11px] tracking-wider text-slate-800 dark:text-slate-200">{{ center.name }}</td>
+                    <td class="px-5 py-3 border-r border-slate-200 dark:border-slate-800">
+                        {% if center.upload_token %}
+                            {% if center.upload_token.is_active %}
+                                <span class="px-1.5 py-0.5 rounded-sm bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider">Active</span>
+                            {% else %}
+                                <span class="px-1.5 py-0.5 rounded-sm bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-[9px] font-black uppercase tracking-wider">Disabled</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Not generated</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-5 py-3 border-r border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        {% if center.upload_token.last_used_at %}
+                            {{ center.upload_token.last_used_at|date:"j M Y, H:i" }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td class="px-5 py-3 text-right flex justify-end gap-2">
+                        <button type="button"
+                                data-generate-url="{% url 'admin_generate_upload_token' center_id=center.id %}"
+                                onclick="generateUploadLink(this, {{ center.id }})"
+                                class="bg-brand hover:bg-brand/90 text-white font-black py-2 px-4 rounded-md shadow-sm transition-all text-[10px] uppercase tracking-widest">
+                            {% if center.upload_token %}Rotate{% else %}Generate{% endif %}
+                        </button>
+                        {% if center.upload_token and center.upload_token.is_active %}
+                        <button type="button"
+                                data-disable-url="{% url 'admin_disable_upload_token' center_id=center.id %}"
+                                onclick="disableUploadLink(this, {{ center.id }})"
+                                class="text-slate-400 hover:text-red-500 hover:bg-red-500/10 px-3 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-colors">
+                            Disable
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
 </div>
 
 <script src="{% static 'inventory/js/manage_centers.js' %}?v=1.1"></script>
@@ -266,63 +440,6 @@
         if(window.ManageCentersApp) window.ManageCentersApp.init();
     }
 </script>
-
-<!-- Supervisor upload links section (PR #2) -->
-<div style="margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e0e0e0;">
-    <h3 style="margin: 0 0 8px; font-size: 16px;">Supervisor upload links</h3>
-    <p style="margin: 0 0 16px; font-size: 13px; color: #555;">Each center can have a private link that supervisors use to upload stock sheets from their phone. The OCR/review flow stays unchanged — supervisor uploads land in the same queue as admin uploads.</p>
-    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-        <thead>
-            <tr style="background: #ffffff; text-align: left;">
-                <th style="padding: 8px 10px; border-bottom: 1px solid #e0e0e0;">Center</th>
-                <th style="padding: 8px 10px; border-bottom: 1px solid #e0e0e0;">Status</th>
-                <th style="padding: 8px 10px; border-bottom: 1px solid #e0e0e0;">Last activity</th>
-                <th style="padding: 8px 10px; border-bottom: 1px solid #e0e0e0; text-align: right;">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for center in centers %}
-            <tr id="upload-row-{{ center.id }}" style="background: #ffffff;">
-                <td style="padding: 10px; border-bottom: 1px solid #f0f0f0;">{{ center.name }}</td>
-                <td style="padding: 10px; border-bottom: 1px solid #f0f0f0;">
-                    {% if center.upload_token %}
-                        {% if center.upload_token.is_active %}
-                            <span style="color: #1a5d2f; font-weight: 600;">Active</span>
-                        {% else %}
-                            <span style="color: #8a1a14;">Disabled</span>
-                        {% endif %}
-                    {% else %}
-                        <span style="color: #888;">Not generated</span>
-                    {% endif %}
-                </td>
-                <td style="padding: 10px; border-bottom: 1px solid #f0f0f0; color: #555;">
-                    {% if center.upload_token.last_used_at %}
-                        {{ center.upload_token.last_used_at|date:"j M Y, H:i" }}
-                    {% else %}
-                        —
-                    {% endif %}
-                </td>
-                <td style="padding: 10px; border-bottom: 1px solid #f0f0f0; text-align: right;">
-                    <button type="button"
-                            data-generate-url="{% url 'admin_generate_upload_token' center_id=center.id %}"
-                            onclick="generateUploadLink(this, {{ center.id }})"
-                            style="padding: 6px 12px; font-size: 12px; background: #2c5282; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-right: 6px;">
-                        {% if center.upload_token %}Rotate{% else %}Generate{% endif %}
-                    </button>
-                    {% if center.upload_token and center.upload_token.is_active %}
-                    <button type="button"
-                            data-disable-url="{% url 'admin_disable_upload_token' center_id=center.id %}"
-                            onclick="disableUploadLink(this, {{ center.id }})"
-                            style="padding: 6px 12px; font-size: 12px; background: #fff; color: #8a1a14; border: 1px solid #d9534f; border-radius: 4px; cursor: pointer;">
-                        Disable
-                    </button>
-                    {% endif %}
-                </td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</div>
 
 <script>
 function getCsrf() {
@@ -372,5 +489,78 @@ async function disableUploadLink(btn, centerId) {
         btn.disabled = false;
     }
 }
+async function generatePairingCode(btn, centerId) {
+    const url = btn.dataset.pairUrl;
+    btn.disabled = true;
+    const origText = btn.textContent;
+    btn.textContent = 'Working...';
+    try {
+        const res = await fetch(url, { method: 'POST', headers: { 'X-CSRFToken': getCsrf() }, credentials: 'same-origin' });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+            const msg = 'Pairing code: ' + data.code + '\n\nPWA URL:\n' + data.pwa_url + '\n\nCode expires: ' + data.expires_at;
+            try { await navigator.clipboard.writeText(data.code); } catch (e) {}
+            window.prompt(msg + '\n\n(Code copied to clipboard)', data.code);
+        } else {
+            alert('Error: ' + (data.error || 'Failed to generate code.'));
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = origText;
+    }
+}
+async function removeSupervisorDevice(btn) {
+    if (!confirm('Remove this paired device? The supervisor will need to pair again.')) return;
+    const url = btn.dataset.removeUrl;
+    btn.disabled = true;
+    try {
+        const res = await fetch(url, { method: 'POST', headers: { 'X-CSRFToken': getCsrf() }, credentials: 'same-origin' });
+        const data = await res.json();
+        if (res.ok && data.ok) location.reload();
+        else alert('Error: ' + (data.error || 'Failed.'));
+    } catch (e) {
+        alert('Network error: ' + e.message);
+        btn.disabled = false;
+    }
+}
+(function() {
+    const panel = document.getElementById('reminder-settings-panel');
+    const saveBtn = document.getElementById('save-reminder-btn');
+    const msg = document.getElementById('reminder-save-msg');
+    if (!panel || !saveBtn) return;
+    saveBtn.addEventListener('click', async function() {
+        saveBtn.disabled = true;
+        msg.classList.add('hidden');
+        try {
+            const res = await fetch(panel.dataset.saveUrl, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    is_enabled: document.getElementById('reminder-enabled').checked,
+                    start_time: document.getElementById('reminder-start').value,
+                    interval_hours: document.getElementById('reminder-interval').value,
+                    deadline_time: document.getElementById('reminder-deadline').value,
+                    lookback_days: document.getElementById('reminder-lookback').value,
+                }),
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                msg.textContent = 'Reminder settings saved.';
+                msg.className = 'mt-3 text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400';
+            } else {
+                msg.textContent = data.error || 'Save failed.';
+                msg.className = 'mt-3 text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400';
+            }
+            msg.classList.remove('hidden');
+        } catch (e) {
+            alert('Network error: ' + e.message);
+        } finally {
+            saveBtn.disabled = false;
+        }
+    });
+})();
 </script>
 {% endblock %}
