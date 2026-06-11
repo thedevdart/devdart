@@ -8,6 +8,7 @@ const ITEMS = [
   { id: "work", label: "Work" },
   { id: "pricing", label: "Pricing" },
   { id: "faq", label: "FAQ" },
+  { id: "contact", label: "Contact" },
 ];
 
 export default function JourneyNav() {

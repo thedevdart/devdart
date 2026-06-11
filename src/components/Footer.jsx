@@ -44,6 +44,15 @@ export default function Footer() {
             <a href="#services" className="transition-colors hover:text-paper">Services</a>
             <a href="#work" className="transition-colors hover:text-paper">Our work</a>
             <a href="#pricing" className="transition-colors hover:text-paper">Pricing</a>
+            <a href="#contact" className="transition-colors hover:text-paper">Contact</a>
+            <a
+              href="https://instagram.com/thedevdart"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-colors hover:text-paper"
+            >
+              Instagram
+            </a>
             <span className="flex items-center gap-1.5 text-dart">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-dart" /> Accepting new clients
             </span>

@@ -9,6 +9,7 @@ import Process from "./components/Process.jsx";
 import Work from "./components/Work.jsx";
 import Pricing from "./components/Pricing.jsx";
 import Faq from "./components/Faq.jsx";
+import Contact from "./components/Contact.jsx";
 import Footer from "./components/Footer.jsx";
 import LiveBackground from "./components/LiveBackground.jsx";
 import CursorAura from "./components/CursorAura.jsx";
@@ -57,6 +58,9 @@ export default function App() {
             </SceneSection>
             <SceneSection variant="rise">
               <Faq />
+            </SceneSection>
+            <SceneSection variant="float">
+              <Contact />
             </SceneSection>
           </main>
           <Footer />

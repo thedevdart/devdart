@@ -7,6 +7,7 @@ const LINKS = [
   { href: "#process", label: "How it works" },
   { href: "#work", label: "Our work" },
   { href: "#pricing", label: "Pricing" },
+  { href: "#contact", label: "Contact" },
 ];
 
 export default function Navbar() {
