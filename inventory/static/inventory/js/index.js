@@ -933,6 +933,18 @@ function buildFullSheet() {
     `;
 }
 
+function formatAiCorrectionEntry(correction) {
+    return `<b>${correction.item}</b>: ${correction.field_label} <span class="text-amber-300">${correction.scanned}</span> → <span class="text-emerald-300">${correction.corrected}</span>`;
+}
+
+function applyAiCorrectionsToAuditLog(corrections) {
+    if (!Array.isArray(corrections) || corrections.length === 0) return;
+    corrections.forEach((correction) => {
+        extractionAuditLog.push(formatAiCorrectionEntry(correction));
+    });
+    updateAuditLogUI();
+}
+
 function updateAuditLogUI() {
     const list = document.getElementById('auditLogList');
     if (!list) return;
@@ -1490,20 +1502,26 @@ async function runAnalysis() {
         const response = await fetch('/inventory/api/analyze-sheet/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
-            body: JSON.stringify({ mime_type: currentMime, data: currentBase64 })
+            body: JSON.stringify({
+                mime_type: currentMime,
+                data: currentBase64,
+                center_id: centerId,
+                date: document.getElementById('dateInput')?.value || '',
+                allowed_names: allowedNames,
+            })
         });
         const data = await response.json();
         if (!response.ok || (data && data.error)) throw new Error((data && data.error) || `Server error ${response.status}`);
-        extractedText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (!extractedText) throw new Error("Empty response from server");
-        
-        const dateMatch = extractedText.match(/DATE_FOUND: (\d{4}-\d{2}-\d{2})/);
+        let fullText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        if (!fullText) throw new Error("Empty response from server");
+
+        const dateMatch = fullText.match(/DATE_FOUND: (\d{4}-\d{2}-\d{2})/);
         if(dateMatch && dateMatch[1] !== document.getElementById('dateInput').value) {
             showToast("Date Warning", `Sheet says ${dateMatch[1]}`, "warning");
         }
         
-        extractedText = extractedText.replace(/DATE_FOUND: .*/g, "").replace(/```csv/g, "").replace(/```/g, "").trim();
-        parseCSV(extractedText);
+        extractedText = fullText.replace(/DATE_FOUND: .*/g, "").replace(/```csv/g, "").replace(/```/g, "").trim();
+        await parseCSV(extractedText);
 
         status.innerHTML = '<i class="fa-solid fa-check text-emerald-500"></i> Done';
         
@@ -1524,22 +1542,74 @@ async function runAnalysis() {
     }
 }
 
-function parseCSV(text) {
+async function resolveLedgerRowsOnServer(parsedRows) {
+    const centerId = document.getElementById('centerSelect')?.value;
+    const dateVal = document.getElementById('dateInput')?.value;
+    if (!centerId || !dateVal || !parsedRows.length) return parsedRows;
+
+    try {
+        const csrftoken = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1]
+            || (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+        const response = await fetch('/inventory/api/resolve-ledger-rows/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+            body: JSON.stringify({
+                center_id: centerId,
+                date: dateVal,
+                rows: parsedRows.map((row) => ({
+                    name: row.finalName,
+                    opening: row.op,
+                    inward: row.inw,
+                    dispatch: row.disp,
+                    closing: row.clo,
+                })),
+            }),
+        });
+        const data = await response.json();
+        if (data.status !== 'success') return parsedRows;
+
+        if (data.corrections?.length) {
+            applyAiCorrectionsToAuditLog(data.corrections);
+        }
+
+        const correctedByName = {};
+        (data.rows || []).forEach((row) => {
+            correctedByName[row.name.toUpperCase()] = row;
+        });
+
+        return parsedRows.map((row) => {
+            const corrected = correctedByName[row.finalName.toUpperCase()];
+            if (!corrected || !corrected.resolved) return row;
+            return {
+                ...row,
+                op: corrected.opening,
+                inw: corrected.inward,
+                disp: corrected.dispatch,
+                clo: corrected.closing,
+            };
+        });
+    } catch (e) {
+        console.error('Ledger row correction failed:', e);
+        return parsedRows;
+    }
+}
+
+async function parseCSV(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-    extractionAuditLog = []; 
+    extractionAuditLog = [];
     const masterNamesLower = currentCenterMasters.map(m => m.name.toLowerCase());
-    
+
     let readingCSV = false;
-    let lastMatchedRow = null;
+    const parsedRows = [];
 
     lines.forEach(line => {
         if (line.includes("CSV_START")) { readingCSV = true; return; }
-        if (!readingCSV || !line.includes(",")) return; 
-        
+        if (!readingCSV || !line.includes(",")) return;
+
         const cols = line.split(',');
-        if (cols.length >= 5 && cols[0] !== 'Category') { 
-            let rawCat = cols[0].trim(); 
-            let matName = cols[1].trim().toUpperCase(); 
+        if (cols.length >= 5 && cols[0] !== 'Category') {
+            let rawCat = cols[0].trim();
+            let matName = cols[1].trim().toUpperCase();
             let op = parseFloat(cols[2]) || 0;
             let inw = parseFloat(cols[3]) || 0;
             let disp = parseFloat(cols[4]) || 0;
@@ -1557,47 +1627,54 @@ function parseCSV(text) {
             } else if (currentCenterAliases[lowerName]) {
                 finalName = currentCenterAliases[lowerName];
                 let m = currentCenterMasters.find(m => m.name === finalName);
-                if(m) categoryStr = m.category; 
+                if (m) categoryStr = m.category;
                 isUnresolved = false;
                 extractionAuditLog.push(`Mapped <b>"${matName}"</b> ➔ <b>${finalName}</b>`);
             }
 
             if (isUnresolved) categoryStr = "Finished Goods";
 
-            let existingRow = null;
-            document.querySelectorAll('#tableBody tr').forEach(tr => {
-                if (tr.getAttribute('data-item-name') === finalName && !tr.classList.contains('unresolved-row')) {
-                    existingRow = tr;
-                }
-            });
+            parsedRows.push({ finalName, categoryStr, isUnresolved, op, inw, disp, clo });
+        }
+    });
 
-            if (existingRow && !isUnresolved) {
-                existingRow.querySelector('.val-opening').value = op;
-                existingRow.querySelector('.val-inward').value = inw;
-                existingRow.querySelector('.val-dispatch').value = disp;
-                existingRow.querySelector('.val-closing').value = clo;
-                lastMatchedRow = existingRow;
-            } else {
-                const tbody = document.getElementById('tableBody');
-                const newRow = createRow(finalName, categoryStr, isUnresolved, {op, inw, disp, clo});
-                
-                if (lastMatchedRow && lastMatchedRow.nextSibling) {
-                    tbody.insertBefore(newRow, lastMatchedRow.nextSibling);
-                } else if (lastMatchedRow) {
-                    tbody.appendChild(newRow);
-                } else {
-                    tbody.prepend(newRow);
-                }
+    const resolvedRows = await resolveLedgerRowsOnServer(parsedRows);
 
-                lastMatchedRow = newRow;
-                if(isUnresolved) window.revalidateRow(newRow);
+    let lastMatchedRow = null;
+    resolvedRows.forEach(({ finalName, categoryStr, isUnresolved, op, inw, disp, clo }) => {
+        let existingRow = null;
+        document.querySelectorAll('#tableBody tr').forEach(tr => {
+            if (tr.getAttribute('data-item-name') === finalName && !tr.classList.contains('unresolved-row')) {
+                existingRow = tr;
             }
+        });
+
+        if (existingRow && !isUnresolved) {
+            existingRow.querySelector('.val-opening').value = op;
+            existingRow.querySelector('.val-inward').value = inw;
+            existingRow.querySelector('.val-dispatch').value = disp;
+            existingRow.querySelector('.val-closing').value = clo;
+            lastMatchedRow = existingRow;
+        } else {
+            const tbody = document.getElementById('tableBody');
+            const newRow = createRow(finalName, categoryStr, isUnresolved, { op, inw, disp, clo });
+
+            if (lastMatchedRow && lastMatchedRow.nextSibling) {
+                tbody.insertBefore(newRow, lastMatchedRow.nextSibling);
+            } else if (lastMatchedRow) {
+                tbody.appendChild(newRow);
+            } else {
+                tbody.prepend(newRow);
+            }
+
+            lastMatchedRow = newRow;
+            if (isUnresolved) window.revalidateRow(newRow);
         }
         window.saveState();
     });
-    
+
     updateAuditLogUI();
-    window.calculateTotals(); 
+    window.calculateTotals();
     updateComplicationIndicator();
 }
 
@@ -1732,142 +1809,159 @@ async function executeSave() {
 document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const loadSheetId = params.get('load_sheet_id');
-    
-    if (loadSheetId) {
+    const loadNotificationId = params.get('load_notification_id');
+    const url = new URL(window.location);
+
+    if (loadNotificationId) {
+        loadNotificationData(loadNotificationId);
+        url.searchParams.delete('load_notification_id');
+        window.history.replaceState({}, document.title, url);
+    } else if (loadSheetId) {
         loadSheetData(loadSheetId);
-        
-        // Remove the parameter from the URL to keep it clean (optional, but good UX)
-        const url = new URL(window.location);
         url.searchParams.delete('load_sheet_id');
         window.history.replaceState({}, document.title, url);
     }
 });
+
+async function applyPreloadedSheetData(data, statusLabel = 'Loaded from Review') {
+    extractionAuditLog = [];
+    updateAuditLogUI();
+
+    const dateInput = document.getElementById('dateInput');
+    if (dateInput && dateInput._flatpickr) {
+        dateInput._flatpickr.setDate(data.date);
+    } else if (dateInput) {
+        dateInput.value = data.date;
+    }
+
+    const centerSelect = document.getElementById('centerSelect');
+    if (centerSelect) {
+        centerSelect.value = data.center_id;
+        centerSelect.dispatchEvent(new Event('change'));
+
+        const alpineComponent = centerSelect.closest('[x-data]');
+        if (alpineComponent && typeof Alpine !== 'undefined') {
+            const alpineData = Alpine.$data(alpineComponent);
+            if (alpineData && alpineData.centers) {
+                const centerData = alpineData.centers.find(c => c.id == data.center_id);
+                if (centerData) {
+                    alpineData.centerSearch = centerData.name;
+                }
+            }
+        }
+    }
+
+    if (typeof loadCenterMasters === 'function') {
+        loadCenterMasters();
+    } else if (typeof window.loadCenterMasters === 'function') {
+        window.loadCenterMasters();
+    }
+
+    if (data.image_url) {
+        const previewImg = document.getElementById('previewImg');
+        const placeholder = document.getElementById('placeholder-content');
+        const previewContainer = document.getElementById('previewContainer');
+        const resultsPanel = document.getElementById('results');
+
+        if (previewImg && placeholder) {
+            try {
+                const res = await fetch(data.image_url);
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                const blob = await res.blob();
+                const urlPath = data.image_url.split('?')[0];
+                const name = urlPath.substring(urlPath.lastIndexOf('/') + 1) || 'review-document';
+                let mimeType = blob.type;
+                if (!mimeType || mimeType === 'application/octet-stream') {
+                    mimeType = urlPath.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
+                }
+                const file = new File([blob], name, { type: mimeType });
+                await loadFileIntoPreview(file);
+            } catch (err) {
+                console.error("Failed to load image as blob for preview:", err);
+                previewImg.src = data.image_url;
+                previewImg.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                currentBase64 = "PRELOADED";
+            }
+
+            if (previewContainer) {
+                previewContainer.classList.add('items-center', 'justify-center');
+                previewContainer.classList.remove('overflow-y-auto', 'block');
+            }
+            if (resultsPanel) {
+                resultsPanel.classList.remove('hidden');
+            }
+        }
+    }
+
+    if (data.raw_extracted_data) {
+        const status = document.getElementById('status');
+        if (status) {
+            status.classList.remove('hidden');
+            status.innerHTML = `<i class="fa-solid fa-check text-emerald-500"></i> ${statusLabel}`;
+        }
+
+        try {
+            let extractedText = "";
+            const candidates = data.raw_extracted_data.candidates;
+            if (candidates && candidates.length > 0) {
+                extractedText = candidates[0].content.parts[0].text;
+            }
+
+            if (extractedText) {
+                extractedText = extractedText.replace(/DATE_FOUND: .*/g, "").replace(/```csv/g, "").replace(/```/g, "").trim();
+                await parseCSV(extractedText);
+                showToast("Loaded", "Sheet data populated for review.", "success");
+
+                const alpineContainer = document.getElementById('ledger-app-container');
+                if (alpineContainer && typeof Alpine !== 'undefined') {
+                    Alpine.$data(alpineContainer).activeTab = 'closing';
+                    window.currentActiveTab = 'closing';
+                }
+            } else {
+                showToast("Image Loaded", "No raw extraction text found.", "warning");
+            }
+        } catch (e) {
+            console.error("Error parsing raw_extracted_data", e);
+            showToast("Error", "Could not parse extracted data.", "error");
+        }
+    } else {
+        showToast("Image Loaded", "No raw data found, please run extraction.", "warning");
+    }
+
+    if (data.ai_corrections && data.ai_corrections.length > 0) {
+        applyAiCorrectionsToAuditLog(data.ai_corrections);
+    }
+}
 
 async function loadSheetData(sheetId) {
     showToast("Loading", "Fetching sheet data for review...", "info");
     try {
         const response = await fetch(`/inventory/api/raw-sheet/${sheetId}/`);
         const data = await response.json();
-        
         if (data.status === 'success') {
-            // 1. Set Date
-            const dateInput = document.getElementById('dateInput');
-            if (dateInput && dateInput._flatpickr) {
-                dateInput._flatpickr.setDate(data.date);
-            } else if (dateInput) {
-                dateInput.value = data.date;
-            }
-
-            // 2. Set Center via Alpine OR Fallback
-            const centerSelect = document.getElementById('centerSelect');
-            if (centerSelect) {
-                centerSelect.value = data.center_id;
-                // Dispatch change event to update the Alpine component visually if bound
-                centerSelect.dispatchEvent(new Event('change'));
-                
-                // Update Alpine component text manually
-                const alpineComponent = centerSelect.closest('[x-data]');
-                if (alpineComponent && typeof Alpine !== 'undefined') {
-                    const alpineData = Alpine.$data(alpineComponent);
-                    if (alpineData && alpineData.centers) {
-                        const centerData = alpineData.centers.find(c => c.id == data.center_id);
-                        if (centerData) {
-                            alpineData.centerSearch = centerData.name;
-                        }
-                    }
-                }
-            }
-            
-            // Re-trigger loadCenterMasters so currentCenterMasters is populated
-            if (typeof loadCenterMasters === 'function') {
-                loadCenterMasters();
-            } else if (typeof window.loadCenterMasters === 'function') {
-                window.loadCenterMasters();
-            }
-
-            // 3. Load Image
-            if (data.image_url) {
-                const previewImg = document.getElementById('previewImg');
-                const placeholder = document.getElementById('placeholder-content');
-                const previewContainer = document.getElementById('previewContainer');
-                const resultsPanel = document.getElementById('results');
-                
-                if (previewImg && placeholder) {
-                    try {
-                        const res = await fetch(data.image_url);
-                        if (!res.ok) throw new Error("HTTP " + res.status);
-                        const blob = await res.blob();
-                        const urlPath = data.image_url.split('?')[0];
-                        const name = urlPath.substring(urlPath.lastIndexOf('/') + 1) || 'review-document';
-                        let mimeType = blob.type;
-                        if (!mimeType || mimeType === 'application/octet-stream') {
-                            mimeType = urlPath.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
-                        }
-                        const file = new File([blob], name, { type: mimeType });
-                        await loadFileIntoPreview(file);
-                    } catch (err) {
-                        console.error("Failed to load image as blob for preview:", err);
-                        // Fallback
-                        previewImg.src = data.image_url;
-                        previewImg.classList.remove('hidden');
-                        placeholder.classList.add('hidden');
-                        currentBase64 = "PRELOADED"; // bypass empty check
-                    }
-                    
-                    if (previewContainer) {
-                        previewContainer.classList.add('items-center', 'justify-center');
-                        previewContainer.classList.remove('overflow-y-auto', 'block');
-                    }
-                    if (resultsPanel) {
-                        resultsPanel.classList.remove('hidden');
-                    }
-                }
-            }
-
-            // 4. Parse Extracted Data
-            if (data.raw_extracted_data) {
-                const status = document.getElementById('status');
-                if (status) {
-                    status.classList.remove('hidden');
-                    status.innerHTML = '<i class="fa-solid fa-check text-emerald-500"></i> Loaded from Review';
-                }
-                
-                try {
-                    let extractedText = "";
-                    const candidates = data.raw_extracted_data.candidates;
-                    if (candidates && candidates.length > 0) {
-                        extractedText = candidates[0].content.parts[0].text;
-                    }
-                    
-                    if (extractedText) {
-                        extractedText = extractedText.replace(/DATE_FOUND: .*/g, "").replace(/```csv/g, "").replace(/```/g, "").trim();
-                        
-                        // Parse the CSV
-                        parseCSV(extractedText);
-                        
-                        showToast("Loaded", "Sheet data populated for review.", "success");
-                        
-                        // Activate Alpine tab properly
-                        const alpineContainer = document.getElementById('ledger-app-container');
-                        if (alpineContainer && typeof Alpine !== 'undefined') {
-                            Alpine.$data(alpineContainer).activeTab = 'closing';
-                            window.currentActiveTab = 'closing';
-                        }
-                    } else {
-                        showToast("Image Loaded", "No raw extraction text found.", "warning");
-                    }
-                } catch (e) {
-                    console.error("Error parsing raw_extracted_data", e);
-                    showToast("Error", "Could not parse extracted data.", "error");
-                }
-            } else {
-                showToast("Image Loaded", "No raw data found, please run extraction.", "warning");
-            }
+            await applyPreloadedSheetData(data);
         } else {
             showToast("Error", data.message || "Could not fetch sheet data", "error");
         }
     } catch (error) {
         console.error("Error loading sheet:", error);
         showToast("Error", "Failed to fetch sheet data.", "error");
+    }
+}
+
+async function loadNotificationData(notifId) {
+    showToast("Loading", "Fetching original upload data...", "info");
+    try {
+        const response = await fetch(`/inventory/api/notifications/${notifId}/original/`);
+        const data = await response.json();
+        if (data.status === 'success') {
+            await applyPreloadedSheetData(data, 'Original Upload');
+        } else {
+            showToast("Error", data.message || "Could not fetch original upload data", "error");
+        }
+    } catch (error) {
+        console.error("Error loading notification snapshot:", error);
+        showToast("Error", "Failed to fetch original upload data.", "error");
     }
 }

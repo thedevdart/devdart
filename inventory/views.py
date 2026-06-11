@@ -32,7 +32,10 @@ from hub.decorators import require_app_access, require_feature_access
 
 from django.contrib.auth.models import User
 from .models import Center, StockSheet, MasterItem, ItemAlias, StockEntry, CenterMasterItem, CenterItemAlias, PrintTemplate, PrintTemplateItem, CenterClassification, TargetReportConfig, TargetReportColumn, Notification
-from .utils import analyze_with_gemini
+from .utils import (
+    analyze_with_gemini,
+    resolve_supervisor_ledger_row,
+)
 
 # ==========================================
 # 1. DASHBOARD & UPLOAD
@@ -198,6 +201,9 @@ def save_stock(request):
 
             from .models import Notification
             Notification.objects.filter(target_id=sheet.id, notif_type='case2').update(notif_type='case2_resolved')
+            if sheet.raw_extracted_data is not None:
+                sheet.raw_extracted_data = None
+                sheet.save(update_fields=['raw_extracted_data'])
 
         return JsonResponse({'status': 'success'})
 
@@ -250,7 +256,8 @@ def api_get_raw_sheet(request, sheet_id):
         'center_id': sheet.center_id,
         'date': sheet.date.isoformat(),
         'image_url': image_url,
-        'raw_extracted_data': sheet.raw_extracted_data
+        'raw_extracted_data': sheet.raw_extracted_data,
+        'ai_corrections': sheet.ai_corrections or [],
     })
 
 # ==========================================
@@ -465,7 +472,8 @@ def report_detail(request, sheet_id):
         'entries': entries,
         'raw_total': int(raw_total), 
         'finished_total': int(finished_total),
-        'grand_total': int(grand_total)
+        'grand_total': int(grand_total),
+        'ai_corrections': sheet.ai_corrections or [],
     })
 
 @require_app_access('inventory')
@@ -978,46 +986,313 @@ def download_daily_report(request, date_str):
 
 @require_app_access('inventory')
 @require_POST
+def api_resolve_ledger_rows(request):
+    """Apply confusable-digit corrections to extracted ledger rows (index + review flows)."""
+    try:
+        data = json.loads(request.body)
+        center_id = data.get('center_id')
+        date_str = data.get('date')
+        rows = data.get('rows', [])
+
+        if not center_id or not date_str:
+            return JsonResponse({'status': 'error', 'message': 'Missing center or date'}, status=400)
+
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+        prev_date = date_obj - timedelta(days=1)
+        prev_entries = StockEntry.objects.filter(
+            sheet__center_id=center_id, sheet__date=prev_date
+        ).select_related('master_item')
+        prev_balances = {
+            entry.master_item.name.upper(): entry.closing_balance for entry in prev_entries
+        }
+
+        corrected_rows = []
+        all_corrections = []
+
+        for row in rows:
+            name = (row.get('name') or '').strip()
+            op = Decimal(str(row.get('opening', 0)))
+            inw = Decimal(str(row.get('inward', 0)))
+            disp = Decimal(str(row.get('dispatch', 0)))
+            clo = Decimal(str(row.get('closing', 0)))
+            prev_bal = prev_balances.get(name.upper(), Decimal('0'))
+
+            resolved = resolve_supervisor_ledger_row(op, inw, disp, clo, prev_bal, name)
+            if resolved:
+                op, inw, disp, clo, row_corrections = resolved
+                all_corrections.extend(row_corrections)
+                corrected_rows.append({
+                    'name': name,
+                    'opening': float(op),
+                    'inward': float(inw),
+                    'dispatch': float(disp),
+                    'closing': float(clo),
+                    'resolved': True,
+                })
+            else:
+                corrected_rows.append({
+                    'name': name,
+                    'opening': float(op),
+                    'inward': float(inw),
+                    'dispatch': float(disp),
+                    'closing': float(clo),
+                    'resolved': False,
+                })
+
+        return JsonResponse({
+            'status': 'success',
+            'rows': corrected_rows,
+            'corrections': all_corrections,
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@require_app_access('inventory')
+@require_POST
 def api_analyze_sheet(request):
     try:
         data = json.loads(request.body)
         mime = data.get('mime_type')
         b64_data = data.get('data')
-        
+        center_id = data.get('center_id')
+        date_str = data.get('date', '')
+        allowed_names = data.get('allowed_names', '')
+
         if not mime or not b64_data:
             return JsonResponse({'error': 'Missing file data'}, status=400)
-            
+
+        center_name = 'Center'
+        if center_id:
+            center = Center.objects.filter(id=center_id).first()
+            if center:
+                center_name = center.name
+
         from core.utils import compress_base64_if_needed
         mime, b64_data = compress_base64_if_needed(mime, b64_data)
-            
-        result = analyze_with_gemini(mime, b64_data)
-        
+
+        result = analyze_with_gemini(mime, b64_data, center_name, allowed_names)
+
         if 'error' in result:
-             return JsonResponse(result, status=500)
-             
+            return JsonResponse(result, status=500)
+
         return JsonResponse(result)
-        
+
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
+
+NOTIFICATION_RETENTION_DAYS = 2
+
+
+def _notification_retention_cutoff():
+    """Keep today plus the previous NOTIFICATION_RETENTION_DAYS calendar days."""
+    from django.utils import timezone as tz
+    oldest_day = tz.localdate() - timedelta(days=NOTIFICATION_RETENTION_DAYS)
+    return tz.make_aware(datetime.combine(oldest_day, datetime.min.time()))
+
+
+def _notification_category(notif_type):
+    if notif_type == 'case1':
+        return 'tallied'
+    if notif_type == 'case2_resolved':
+        return 'resolved'
+    if notif_type == 'case4':
+        return 'replaced'
+    return 'not_tallied'
+
+
+def _notification_center_and_date(notif, sheets_by_id):
+    center_name = ''
+    sheet_date = ''
+    if notif.target_id:
+        sheet = sheets_by_id.get(notif.target_id)
+        if sheet:
+            center_name = sheet.center.name
+            sheet_date = sheet.date.isoformat()
+    if not center_name and notif.snapshot_center_name:
+        center_name = notif.snapshot_center_name
+    if not sheet_date and notif.snapshot_date:
+        sheet_date = notif.snapshot_date.isoformat()
+    if not center_name and ':' in notif.title:
+        center_name = notif.title.split(':', 1)[1].strip()
+    return center_name, sheet_date
+
+
+def _build_notification_snapshot(gemini_result=None, center=None, upload_date=None, sheet=None, ai_corrections=None):
+    image_path = ''
+    if sheet:
+        if sheet.review_image:
+            image_path = sheet.review_image.name
+        elif sheet.image:
+            image_path = sheet.image.name
+    return {
+        'snapshot_raw_extracted_data': gemini_result,
+        'snapshot_center_id': center.id if center else None,
+        'snapshot_center_name': center.name if center else '',
+        'snapshot_date': upload_date,
+        'snapshot_image_path': image_path,
+        'snapshot_ai_corrections': ai_corrections or None,
+    }
+
+
+def _notification_has_original(notif, sheet=None):
+    if notif.snapshot_raw_extracted_data:
+        return True
+    return bool(sheet and sheet.raw_extracted_data)
+
+
+def _notification_image_url(notif, sheet=None):
+    if sheet:
+        if sheet.review_image:
+            return sheet.review_image.url
+        if sheet.image:
+            return sheet.image.url
+    if notif.snapshot_image_path:
+        return settings.MEDIA_URL + notif.snapshot_image_path
+    return ''
+
+
 @require_app_access('inventory')
 def api_get_notifications(request):
-    """Fetch unread notifications for the logged-in user."""
-    notifs = Notification.objects.filter(user=request.user).order_by('-created_at')[:20]
-    unread_count = Notification.objects.filter(user=request.user, is_read=False).count()
-    
+    """Fetch notifications for the logged-in user within the retention window."""
+    _purge_expired_notifications()
+    cutoff = _notification_retention_cutoff()
+    notifs = list(
+        Notification.objects.filter(user=request.user, created_at__gte=cutoff).order_by('-created_at')
+    )
+    unread_count = sum(1 for n in notifs if not n.is_read)
+
+    target_ids = [n.target_id for n in notifs if n.target_id]
+    sheets_by_id = {
+        sheet.id: sheet
+        for sheet in StockSheet.objects.filter(id__in=target_ids).select_related('center')
+    }
+    sheets_with_entries = set(
+        StockEntry.objects.filter(sheet_id__in=target_ids).values_list('sheet_id', flat=True).distinct()
+    )
+
     data = []
     for n in notifs:
+        sheet = sheets_by_id.get(n.target_id) if n.target_id else None
+        center_name, sheet_date = _notification_center_and_date(n, sheets_by_id)
+        sheet_exists = sheet is not None
+        has_report = sheet_exists and n.target_id in sheets_with_entries
+        has_original = _notification_has_original(n, sheet)
         data.append({
             'id': n.id,
             'title': n.title,
             'message': n.message,
             'type': n.notif_type,
+            'category': _notification_category(n.notif_type),
             'is_read': n.is_read,
             'target_id': n.target_id,
-            'created_at': n.created_at.strftime('%d %b, %H:%M')
+            'center_name': center_name,
+            'sheet_date': sheet_date,
+            'created_at': n.created_at.strftime('%d %b, %H:%M'),
+            'sheet_exists': sheet_exists,
+            'has_report': has_report,
+            'has_original': has_original,
+            'show_check_original': n.notif_type in ('case1', 'case2_resolved', 'case4') and has_original,
         })
     return JsonResponse({'status': 'success', 'notifications': data, 'unread_count': unread_count})
+
+
+@require_app_access('inventory')
+def api_get_notification_original(request, notif_id):
+    """Load the upload-time extraction snapshot for Check Original / deleted sheets."""
+    notif = get_object_or_404(Notification, id=notif_id, user=request.user)
+    sheet = None
+    if notif.target_id:
+        sheet = StockSheet.objects.filter(id=notif.target_id).select_related('center').first()
+
+    center_id = notif.snapshot_center_id
+    date_str = notif.snapshot_date.isoformat() if notif.snapshot_date else ''
+    raw_data = notif.snapshot_raw_extracted_data
+    ai_corrections = notif.snapshot_ai_corrections or []
+
+    if notif.notif_type == 'case4':
+        if not center_id and sheet:
+            center_id = sheet.center_id
+        if not date_str and sheet:
+            date_str = sheet.date.isoformat()
+    elif sheet:
+        center_id = sheet.center_id
+        date_str = sheet.date.isoformat()
+        if notif.notif_type in ('case2', 'case3') and sheet.raw_extracted_data:
+            raw_data = sheet.raw_extracted_data
+        elif not raw_data and sheet.raw_extracted_data:
+            raw_data = sheet.raw_extracted_data
+        if sheet.ai_corrections and not ai_corrections:
+            ai_corrections = sheet.ai_corrections
+
+    if notif.snapshot_image_path:
+        image_url = settings.MEDIA_URL + notif.snapshot_image_path
+    else:
+        image_url = _notification_image_url(notif, sheet)
+
+    return JsonResponse({
+        'status': 'success',
+        'center_id': center_id,
+        'date': date_str,
+        'image_url': image_url,
+        'raw_extracted_data': raw_data,
+        'ai_corrections': ai_corrections,
+        'sheet_exists': sheet is not None,
+        'has_report': bool(sheet and sheet.entries.exists()),
+    })
+
+def _snapshot_image_still_in_use(image_path, exclude_notif_id=None, sheet=None):
+    if not image_path:
+        return False
+    qs = Notification.objects.filter(snapshot_image_path=image_path)
+    if exclude_notif_id:
+        qs = qs.exclude(id=exclude_notif_id)
+    if qs.exists():
+        return True
+    if sheet:
+        if sheet.image and sheet.image.name == image_path:
+            return True
+        if sheet.review_image and sheet.review_image.name == image_path:
+            return True
+    return False
+
+
+def _delete_notification_snapshot_assets(notif):
+    """Remove orphaned snapshot files and sheet raw data tied to this notification."""
+    image_path = notif.snapshot_image_path
+    sheet = StockSheet.objects.filter(id=notif.target_id).first() if notif.target_id else None
+
+    if image_path and not _snapshot_image_still_in_use(image_path, exclude_notif_id=notif.id, sheet=sheet):
+        full_path = os.path.join(settings.MEDIA_ROOT, image_path)
+        if os.path.isfile(full_path):
+            try:
+                os.remove(full_path)
+            except OSError:
+                pass
+
+    if notif.target_id:
+        remaining = Notification.objects.filter(target_id=notif.target_id).exclude(id=notif.id).count()
+        if remaining == 0 and sheet and not sheet.entries.exists():
+            if sheet.raw_extracted_data is not None:
+                sheet.raw_extracted_data = None
+                sheet.save(update_fields=['raw_extracted_data'])
+
+
+@require_app_access('inventory')
+@require_POST
+def api_delete_notification(request, notif_id):
+    """Delete a notification and its associated snapshot raw data."""
+    try:
+        notif = Notification.objects.get(id=notif_id, user=request.user)
+        _delete_notification_snapshot_assets(notif)
+        notif.delete()
+        return JsonResponse({'status': 'success'})
+    except Notification.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Notification not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
 
 @require_app_access('inventory')
 @require_POST
@@ -2578,11 +2853,29 @@ def supervisor_upload_page(request, token):
     })
 
 
-def _create_admin_notifications(title, message, notif_type, target_id=None):
+def _purge_expired_notifications():
+    """Delete notifications older than today plus the previous two calendar days."""
+    from .models import Notification
+    cutoff = _notification_retention_cutoff()
+    Notification.objects.filter(created_at__lt=cutoff).delete()
+
+
+def _create_admin_notifications(title, message, notif_type, target_id=None, snapshot=None):
     from django.contrib.auth.models import User
     from .models import Notification
     admins = User.objects.filter(is_superuser=True)
-    notifs = [Notification(user=admin, title=title, message=message, notif_type=notif_type, target_id=target_id) for admin in admins]
+    notifs = []
+    for admin in admins:
+        kwargs = {
+            'user': admin,
+            'title': title,
+            'message': message,
+            'notif_type': notif_type,
+            'target_id': target_id,
+        }
+        if snapshot:
+            kwargs.update(snapshot)
+        notifs.append(Notification(**kwargs))
     Notification.objects.bulk_create(notifs)
 
 @require_POST
@@ -2666,6 +2959,7 @@ def supervisor_upload_submit(request, token):
             error_reasons.append("No data lines found after CSV_START.")
 
         processed_items = set()
+        sheet_corrections = []
 
         if not has_errors:
             for line in lines[csv_start_index:]:
@@ -2691,18 +2985,26 @@ def supervisor_upload_submit(request, token):
                     has_errors = True
                     error_reasons.append(f"Item not found in master/aliases: {item_name_upper}")
                     break
-                if op + inw - disp != clo:
-                    has_errors = True
-                    error_reasons.append(f"Math check failed for {raw_name}: {op} + {inw} - {disp} != {clo}")
-                    break
-                
+
                 master_name_upper = center_master_item.name.upper()
                 prev_bal = prev_balances.get(master_name_upper, Decimal('0'))
-                if op != prev_bal:
-                    has_errors = True
-                    error_reasons.append(f"Opening balance mismatch for {raw_name}: expected {prev_bal}, got {op}")
+
+                resolved = resolve_supervisor_ledger_row(op, inw, disp, clo, prev_bal, raw_name)
+                if resolved is None:
+                    if op != prev_bal:
+                        has_errors = True
+                        error_reasons.append(
+                            f"Opening balance mismatch for {raw_name}: expected {prev_bal}, got {op}"
+                        )
+                    else:
+                        has_errors = True
+                        error_reasons.append(
+                            f"Math check failed for {raw_name}: {op} + {inw} - {disp} != {clo}"
+                        )
                     break
-                
+                op, inw, disp, clo, row_corrections = resolved
+                sheet_corrections.extend(row_corrections)
+
                 processed_items.add(master_name_upper)
 
                 items_to_save.append({
@@ -2724,58 +3026,87 @@ def supervisor_upload_submit(request, token):
             raise ValueError(error_msg)
 
         # --- Success Case: Auto-verified ---
+        was_replacement = existing_sheet and existing_sheet.entries.exists()
         with transaction.atomic():
             if existing_sheet:
-                # CASE I: Success (overwrite previous)
-                from .models import Notification
-                Notification.objects.filter(target_id=existing_sheet.id).delete()
-                
+                if was_replacement:
+                    preserved_image_path = existing_sheet.review_image.name if existing_sheet.review_image else ''
+                    if existing_sheet.image and not preserved_image_path:
+                        from django.core.files.base import ContentFile
+                        with existing_sheet.image.open('rb') as old_image:
+                            preserved_name = old_image.name.split('/')[-1]
+                            existing_sheet.review_image.save(preserved_name, ContentFile(old_image.read()), save=False)
+                        preserved_image_path = existing_sheet.review_image.name
+
+                    replaced_update = {
+                        'notif_type': 'case4',
+                        'title': f"Replaced: {center.name}",
+                        'message': (
+                            f"A newer tallied sheet was uploaded for {upload_date.strftime('%d %b')}. "
+                            f"This entry has been replaced."
+                        ),
+                    }
+                    if preserved_image_path:
+                        replaced_update['snapshot_image_path'] = preserved_image_path
+                    Notification.objects.filter(
+                        target_id=existing_sheet.id, notif_type='case1'
+                    ).update(**replaced_update)
+
                 existing_sheet.image = upload
                 existing_sheet.uploaded_by_source = 'supervisor'
                 existing_sheet.raw_extracted_data = None
-                existing_sheet.review_image = None
+                if not was_replacement:
+                    existing_sheet.review_image = None
                 existing_sheet.save()
                 existing_sheet.entries.all().delete()
                 sheet = existing_sheet
-                message = f'Success! Your corrected sheet for {upload_date.strftime("%d %b %Y")} was automatically verified.'
-                _create_admin_notifications(
-                    title=f"Tallied: {center.name}",
-                    message=f"Stock sheet for {upload_date.strftime('%d %b')} was successfully verified.",
-                    notif_type='case1',
-                    target_id=sheet.id
-                )
+                if was_replacement:
+                    message = (
+                        f'Success! Your revised sheet for {upload_date.strftime("%d %b %Y")} '
+                        f'replaced the previous tallied entry.'
+                    )
+                else:
+                    message = (
+                        f'Success! Your corrected sheet for {upload_date.strftime("%d %b %Y")} '
+                        f'was automatically verified.'
+                    )
             else:
-                # CASE I: Success
                 sheet = StockSheet.objects.create(
                     center=center, date=upload_date, image=upload,
                     uploaded_by_source='supervisor', uploaded_by_token=token_obj,
                     raw_extracted_data=None
                 )
                 message = f'Success! Your sheet for {upload_date.strftime("%d %b %Y")} was automatically verified.'
-                _create_admin_notifications(
-                    title=f"Tallied: {center.name}",
-                    message=f"Stock sheet for {upload_date.strftime('%d %b')} was successfully verified.",
-                    notif_type='case1',
-                    target_id=sheet.id
-                )
 
-            if not existing_sheet or not existing_sheet.entries.exists():
-                item_names_to_fetch = {item['center_master_name'] for item in items_to_save}
-                global_masters = {mi.name: mi for mi in MasterItem.objects.filter(name__in=item_names_to_fetch)}
-    
-                for item_data in items_to_save:
-                    global_master = global_masters.get(item_data['center_master_name'])
-                    if not global_master:
-                        global_master, _ = MasterItem.objects.get_or_create(
-                            name=item_data['center_master_name'],
-                            defaults={'category': item_data['sheet_category']}
-                        )
-                    StockEntry.objects.create(
-                        sheet=sheet, master_item=global_master,
-                        sheet_category=item_data['sheet_category'], opening_balance=item_data['opening_balance'],
-                        inward=item_data['inward'], dispatch=item_data['dispatch'],
-                        closing_balance=item_data['closing_balance'], raw_name_scanned=item_data['raw_name_scanned']
+            _create_admin_notifications(
+                title=f"Tallied: {center.name}",
+                message=f"Stock sheet for {upload_date.strftime('%d %b')} was successfully verified.",
+                notif_type='case1',
+                target_id=sheet.id,
+                snapshot=_build_notification_snapshot(
+                    gemini_result, center, upload_date, sheet=sheet, ai_corrections=sheet_corrections
+                ),
+            )
+
+            sheet.ai_corrections = sheet_corrections or None
+            sheet.save(update_fields=['ai_corrections'])
+
+            item_names_to_fetch = {item['center_master_name'] for item in items_to_save}
+            global_masters = {mi.name: mi for mi in MasterItem.objects.filter(name__in=item_names_to_fetch)}
+
+            for item_data in items_to_save:
+                global_master = global_masters.get(item_data['center_master_name'])
+                if not global_master:
+                    global_master, _ = MasterItem.objects.get_or_create(
+                        name=item_data['center_master_name'],
+                        defaults={'category': item_data['sheet_category']}
                     )
+                StockEntry.objects.create(
+                    sheet=sheet, master_item=global_master,
+                    sheet_category=item_data['sheet_category'], opening_balance=item_data['opening_balance'],
+                    inward=item_data['inward'], dispatch=item_data['dispatch'],
+                    closing_balance=item_data['closing_balance'], raw_name_scanned=item_data['raw_name_scanned']
+                )
         
         token_obj.last_used_at = _tz.now()
         token_obj.save(update_fields=['last_used_at'])
@@ -2791,39 +3122,56 @@ def supervisor_upload_submit(request, token):
         if upload:
             upload.seek(0)
         
+        existing_tallied = existing_sheet and existing_sheet.entries.exists()
         with transaction.atomic():
-            if existing_sheet:
-                 # CASE II: Previous upload failed/succeeded, now replacing with failed.
-                 from .models import Notification
-                 Notification.objects.filter(target_id=existing_sheet.id).delete()
-
-                 existing_sheet.image = upload
-                 existing_sheet.uploaded_by_source = 'supervisor'
-                 existing_sheet.raw_extracted_data = gemini_result
-                 existing_sheet.review_image = None
-                 existing_sheet.save()
-                 existing_sheet.entries.all().delete()
-                 message = f'Got it. Your corrected sheet for {upload_date.strftime("%d %b %Y")} is queued for manual review.'
-                 sheet = existing_sheet
-                 _create_admin_notifications(
-                     title=f"Tally Failed: {center.name}",
-                     message=f"Stock sheet for {upload_date.strftime('%d %b')} failed auto-verification.",
-                     notif_type='case2',
-                     target_id=sheet.id
-                 )
+            if existing_tallied:
+                # CASE III: Tallied sheet exists — never replace or delete it
+                existing_sheet.review_image = upload
+                existing_sheet.raw_extracted_data = gemini_result
+                existing_sheet.save()
+                sheet = existing_sheet
+                message = (
+                    f'A tallied sheet already exists for {upload_date.strftime("%d %b %Y")}. '
+                    f'Your new upload has been saved for admin review.'
+                )
+                _create_admin_notifications(
+                    title=f"Review Requested: {center.name}",
+                    message=f"Duplicate sheet uploaded for {upload_date.strftime('%d %b')} with errors.",
+                    notif_type='case3',
+                    target_id=sheet.id,
+                    snapshot=_build_notification_snapshot(gemini_result, center, upload_date, sheet=sheet),
+                )
+            elif existing_sheet:
+                # CASE II: Overwrite previous untallied sheet only
+                existing_sheet.image = upload
+                existing_sheet.uploaded_by_source = 'supervisor'
+                existing_sheet.raw_extracted_data = gemini_result
+                existing_sheet.review_image = None
+                existing_sheet.save()
+                existing_sheet.entries.all().delete()
+                message = f'Got it. Your corrected sheet for {upload_date.strftime("%d %b %Y")} is queued for manual review.'
+                sheet = existing_sheet
+                _create_admin_notifications(
+                    title=f"Tally Failed: {center.name}",
+                    message=f"Stock sheet for {upload_date.strftime('%d %b')} failed auto-verification.",
+                    notif_type='case2',
+                    target_id=sheet.id,
+                    snapshot=_build_notification_snapshot(gemini_result, center, upload_date, sheet=sheet),
+                )
             else:
                 # CASE II: First time failure
                 sheet = StockSheet.objects.create(
                     center=center, date=upload_date, image=upload,
                     uploaded_by_source='supervisor', uploaded_by_token=token_obj,
-                    raw_extracted_data=gemini_result
+                    raw_extracted_data=gemini_result,
                 )
                 message = f'Got it. Your sheet for {upload_date.strftime("%d %b %Y")} is queued for manual review.'
                 _create_admin_notifications(
                     title=f"Tally Failed: {center.name}",
                     message=f"Stock sheet for {upload_date.strftime('%d %b')} failed auto-verification.",
                     notif_type='case2',
-                    target_id=sheet.id
+                    target_id=sheet.id,
+                    snapshot=_build_notification_snapshot(gemini_result, center, upload_date, sheet=sheet),
                 )
 
             token_obj.last_used_at = _tz.now()

@@ -58,6 +58,22 @@
         
         html:not(.sidebar-collapsed) .logo-expanded { opacity: 1; visibility: visible; pointer-events: auto; }
         html:not(.sidebar-collapsed) .logo-collapsed { opacity: 0; visibility: hidden; pointer-events: none; }
+
+        .notif-filter-chip input:checked + span {
+            background-color: rgba(255, 137, 101, 0.15);
+            border-color: #FF8965;
+            color: #FF8965;
+        }
+
+        .notif-row .notif-row-action {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+        }
+        .notif-row:hover .notif-row-action {
+            opacity: 1;
+            pointer-events: auto;
+        }
     </style>
 
     <script>
@@ -194,6 +210,51 @@
                 </button>
             </div>
         </div>
+        <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0a0f18] shrink-0 space-y-2">
+            <div class="flex gap-2">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+                    <input id="notifSearchInput" type="search" placeholder="Search activity..." oninput="applyNotificationFilters()" class="w-full pl-8 pr-3 py-2 text-[11px] bg-slate-50 dark:bg-[#05080f] border border-slate-200 dark:border-slate-800 rounded-md focus:outline-none focus:border-primary text-slate-700 dark:text-slate-200 placeholder:text-slate-400">
+                </div>
+                <button id="notifFilterBtn" onclick="toggleNotificationFilters()" class="relative shrink-0 px-3 py-2 text-[10px] font-black uppercase tracking-widest bg-slate-50 dark:bg-[#05080f] border border-slate-200 dark:border-slate-800 rounded-md hover:border-primary text-slate-600 dark:text-slate-300 flex items-center gap-1.5 transition-colors">
+                    <i class="fa-solid fa-filter text-[10px]"></i>
+                    <span class="hidden sm:inline">Filter</span>
+                    <span id="notifFilterBadge" class="hidden absolute -top-1 -right-1 w-4 h-4 bg-primary text-white text-[8px] font-black rounded-full flex items-center justify-center">0</span>
+                </button>
+            </div>
+            <div id="notifFilterPanel" class="hidden rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#05080f] p-3 space-y-3 max-h-56 overflow-y-auto custom-scrollbar">
+                <div>
+                    <p class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Center</p>
+                    <div id="notifFilterCenters" class="flex flex-wrap gap-1.5"></div>
+                </div>
+                <div>
+                    <p class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Date</p>
+                    <div id="notifFilterDates" class="flex flex-wrap gap-1.5"></div>
+                </div>
+                <div>
+                    <p class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Type</p>
+                    <div id="notifFilterTypes" class="flex flex-wrap gap-1.5">
+                        <label class="notif-filter-chip cursor-pointer">
+                            <input type="checkbox" value="tallied" class="sr-only notif-type-filter" onchange="onNotificationTypeFilterChange(this)">
+                            <span class="px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 transition-colors">Tallied</span>
+                        </label>
+                        <label class="notif-filter-chip cursor-pointer">
+                            <input type="checkbox" value="not_tallied" class="sr-only notif-type-filter" onchange="onNotificationTypeFilterChange(this)">
+                            <span class="px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 transition-colors">Not Tallied</span>
+                        </label>
+                        <label class="notif-filter-chip cursor-pointer">
+                            <input type="checkbox" value="resolved" class="sr-only notif-type-filter" onchange="onNotificationTypeFilterChange(this)">
+                            <span class="px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 transition-colors">Resolved</span>
+                        </label>
+                        <label class="notif-filter-chip cursor-pointer">
+                            <input type="checkbox" value="replaced" class="sr-only notif-type-filter" onchange="onNotificationTypeFilterChange(this)">
+                            <span class="px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 transition-colors">Replaced</span>
+                        </label>
+                    </div>
+                </div>
+                <button onclick="clearNotificationFilters()" class="text-[9px] font-black uppercase tracking-widest text-primary hover:underline">Clear filters</button>
+            </div>
+        </div>
         <div class="flex-1 overflow-y-auto custom-scrollbar p-4 bg-slate-50/50 dark:bg-[#05080f]/50" id="notificationList">
         </div>
     </div>
@@ -262,71 +323,219 @@
             }
         }
 
-        // --- Notification Polling Logic ---
+        window.allNotifications = [];
+        window.notificationFilters = { centers: [], dates: [], types: [] };
+
+        function formatSheetDateLabel(isoDate) {
+            if (!isoDate) return '';
+            const parts = isoDate.split('-');
+            if (parts.length !== 3) return isoDate;
+            const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        function updateNotificationFilterBadge() {
+            const badge = document.getElementById('notifFilterBadge');
+            if (!badge) return;
+            const count = window.notificationFilters.centers.length
+                + window.notificationFilters.dates.length
+                + window.notificationFilters.types.length;
+            badge.textContent = count;
+            badge.classList.toggle('hidden', count === 0);
+        }
+
+        function toggleNotificationFilters() {
+            const panel = document.getElementById('notifFilterPanel');
+            if (!panel) return;
+            panel.classList.toggle('hidden');
+        }
+
+        function onNotificationCenterFilterChange(el) {
+            const value = el.value;
+            if (el.checked) {
+                if (!window.notificationFilters.centers.includes(value)) {
+                    window.notificationFilters.centers.push(value);
+                }
+            } else {
+                window.notificationFilters.centers = window.notificationFilters.centers.filter(v => v !== value);
+            }
+            updateNotificationFilterBadge();
+            applyNotificationFilters();
+        }
+
+        function onNotificationDateFilterChange(el) {
+            const value = el.value;
+            if (el.checked) {
+                if (!window.notificationFilters.dates.includes(value)) {
+                    window.notificationFilters.dates.push(value);
+                }
+            } else {
+                window.notificationFilters.dates = window.notificationFilters.dates.filter(v => v !== value);
+            }
+            updateNotificationFilterBadge();
+            applyNotificationFilters();
+        }
+
+        function onNotificationTypeFilterChange(el) {
+            const value = el.value;
+            if (el.checked) {
+                if (!window.notificationFilters.types.includes(value)) {
+                    window.notificationFilters.types.push(value);
+                }
+            } else {
+                window.notificationFilters.types = window.notificationFilters.types.filter(v => v !== value);
+            }
+            updateNotificationFilterBadge();
+            applyNotificationFilters();
+        }
+
+        function clearNotificationFilters() {
+            window.notificationFilters = { centers: [], dates: [], types: [] };
+            document.querySelectorAll('.notif-center-filter, .notif-date-filter, .notif-type-filter').forEach(el => {
+                el.checked = false;
+            });
+            const searchInput = document.getElementById('notifSearchInput');
+            if (searchInput) searchInput.value = '';
+            updateNotificationFilterBadge();
+            applyNotificationFilters();
+        }
+
+        function buildNotificationFilterOptions() {
+            const centersWrap = document.getElementById('notifFilterCenters');
+            const datesWrap = document.getElementById('notifFilterDates');
+            if (!centersWrap || !datesWrap) return;
+
+            const centers = [...new Set(window.allNotifications.map(n => n.center_name).filter(Boolean))].sort();
+            const dates = [...new Set(window.allNotifications.map(n => n.sheet_date).filter(Boolean))].sort().reverse();
+
+            centersWrap.innerHTML = centers.map(center => `
+                <label class="notif-filter-chip cursor-pointer">
+                    <input type="checkbox" value="${center.replace(/"/g, '&quot;')}" class="sr-only notif-center-filter" onchange="onNotificationCenterFilterChange(this)" ${window.notificationFilters.centers.includes(center) ? 'checked' : ''}>
+                    <span class="px-2.5 py-1 rounded-full text-[9px] font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 transition-colors">${center}</span>
+                </label>
+            `).join('') || '<span class="text-[10px] text-slate-400">No centers</span>';
+
+            datesWrap.innerHTML = dates.map(dateVal => `
+                <label class="notif-filter-chip cursor-pointer">
+                    <input type="checkbox" value="${dateVal}" class="sr-only notif-date-filter" onchange="onNotificationDateFilterChange(this)" ${window.notificationFilters.dates.includes(dateVal) ? 'checked' : ''}>
+                    <span class="px-2.5 py-1 rounded-full text-[9px] font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 transition-colors">${formatSheetDateLabel(dateVal)}</span>
+                </label>
+            `).join('') || '<span class="text-[10px] text-slate-400">No dates</span>';
+        }
+
+        function renderNotificationList(notifications) {
+            const list = document.getElementById('notificationList');
+            if (!list) return;
+            list.innerHTML = '';
+
+            if (!notifications.length) {
+                const hasFilters = (document.getElementById('notifSearchInput')?.value || '').trim()
+                    || window.notificationFilters.centers.length
+                    || window.notificationFilters.dates.length
+                    || window.notificationFilters.types.length;
+                list.innerHTML = `<div class="text-center text-slate-500 mt-10 text-sm">${hasFilters ? 'No matching activity.' : 'No activity to show.'}</div>`;
+                return;
+            }
+
+            notifications.forEach(n => {
+                let iconClass = "fa-check text-green-500 bg-green-500/10";
+                if (n.type === 'case2') iconClass = "fa-triangle-exclamation text-red-500 bg-red-500/10";
+                if (n.type === 'case3') iconClass = "fa-magnifying-glass text-orange-500 bg-orange-500/10";
+                if (n.type === 'case2_resolved') iconClass = "fa-check-double text-blue-500 bg-blue-500/10";
+                if (n.type === 'case4') iconClass = "fa-arrows-rotate text-violet-500 bg-violet-500/10";
+
+                const dot = !n.is_read ? '<div class="w-2 h-2 bg-primary rounded-full shrink-0"></div>' : '';
+                const opacityClass = n.is_read ? 'opacity-60' : 'opacity-100';
+                const dateLabel = n.sheet_date ? formatSheetDateLabel(n.sheet_date) : n.created_at;
+                const clickAction = `onclick="handleNotificationClick(${n.id}, ${n.target_id || 'null'}, '${n.type}', ${!!n.sheet_exists}, ${!!n.has_report})"`;
+                const checkOriginalBtn = n.show_check_original ? `
+                    <button type="button"
+                        onclick="event.stopPropagation(); handleCheckOriginalClick(${n.id})"
+                        class="notif-row-action shrink-0 self-center px-2.5 py-1.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-primary hover:text-primary transition-colors"
+                        title="Preload the original extracted upload data">
+                        <i class="fa-solid fa-file-import mr-1"></i> Check Original
+                    </button>
+                ` : '';
+                const deleteBtn = `
+                    <button type="button"
+                        onclick="event.stopPropagation(); deleteNotification(${n.id})"
+                        class="notif-row-action shrink-0 self-center w-8 h-8 rounded-md flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-red-500 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                        title="Delete this notification and its saved raw data">
+                        <i class="fa-solid fa-trash-can text-[10px]"></i>
+                    </button>
+                `;
+
+                list.innerHTML += `
+                <div ${clickAction} class="notif-row group relative p-3 mb-2 bg-white dark:bg-slate-900 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 flex items-start gap-3 cursor-pointer hover:border-primary transition-colors ${opacityClass}">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${iconClass.split(' ')[2]}">
+                        <i class="fa-solid ${iconClass.split(' ')[0]} ${iconClass.split(' ')[1]} text-xs"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h4 class="text-[13px] font-bold text-slate-800 dark:text-slate-200 leading-tight">${n.title}</h4>
+                        <p class="text-[11px] text-slate-500 mt-0.5 leading-snug line-clamp-2">${n.message}</p>
+                        <span class="text-[9px] text-slate-400 mt-1.5 block font-semibold">${dateLabel} · ${n.created_at}</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        ${checkOriginalBtn}
+                        ${deleteBtn}
+                    </div>
+                    ${dot}
+                </div>
+                `;
+            });
+        }
+
+        function applyNotificationFilters() {
+            const search = (document.getElementById('notifSearchInput')?.value || '').trim().toLowerCase();
+            let items = window.allNotifications || [];
+
+            if (search) {
+                items = items.filter(n =>
+                    (n.title || '').toLowerCase().includes(search)
+                    || (n.message || '').toLowerCase().includes(search)
+                    || (n.center_name || '').toLowerCase().includes(search)
+                );
+            }
+            if (window.notificationFilters.centers.length) {
+                items = items.filter(n => window.notificationFilters.centers.includes(n.center_name));
+            }
+            if (window.notificationFilters.dates.length) {
+                items = items.filter(n => window.notificationFilters.dates.includes(n.sheet_date));
+            }
+            if (window.notificationFilters.types.length) {
+                items = items.filter(n => window.notificationFilters.types.includes(n.category));
+            }
+            renderNotificationList(items);
+        }
+
         function fetchNotifications() {
             fetch("{% url 'api_get_notifications' %}")
             .then(res => res.json())
             .then(data => {
                 if(data.status === 'success') {
-                    // Update badge
                     const badge = document.getElementById('notif-badge');
                     const panelCount = document.getElementById('notif-count-panel');
                     const markAllBtn = document.getElementById('markAllReadBtn');
-                    
+
                     if (data.unread_count > 0) {
                         if (badge) {
                             badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
                             badge.classList.remove('hidden');
                         }
-                        
                         if (panelCount) {
                             panelCount.textContent = data.unread_count + ' New';
                             panelCount.classList.remove('hidden');
                         }
-                        if (markAllBtn) {
-                            markAllBtn.classList.remove('hidden');
-                        }
+                        if (markAllBtn) markAllBtn.classList.remove('hidden');
                     } else {
                         if (badge) badge.classList.add('hidden');
                         if (panelCount) panelCount.classList.add('hidden');
                         if (markAllBtn) markAllBtn.classList.add('hidden');
                     }
 
-                    // Update list
-                    const list = document.getElementById('notificationList');
-                    list.innerHTML = '';
-
-                    if (data.notifications.length === 0) {
-                        list.innerHTML = '<div class="text-center text-slate-500 mt-10 text-sm">No activity to show.</div>';
-                        return;
-                    }
-
-                    data.notifications.forEach(n => {
-                        let iconClass = "fa-check text-green-500 bg-green-500/10";
-                        if (n.type === 'case2') iconClass = "fa-triangle-exclamation text-red-500 bg-red-500/10";
-                        if (n.type === 'case3') iconClass = "fa-magnifying-glass text-orange-500 bg-orange-500/10";
-                        if (n.type === 'case2_resolved') iconClass = "fa-check-double text-blue-500 bg-blue-500/10";
-
-                        let dot = !n.is_read ? '<div class="w-2 h-2 bg-primary rounded-full shrink-0"></div>' : '';
-                        let opacityClass = n.is_read ? 'opacity-60' : 'opacity-100';
-
-                        // Handle clicking to mark read and navigate
-                        let clickAction = `onclick="handleNotificationClick(${n.id}, ${n.target_id}, '${n.type}')"`;
-
-                        list.innerHTML += `
-                        <div ${clickAction} class="p-3 mb-2 bg-white dark:bg-slate-900 rounded-md shadow-sm border border-slate-200 dark:border-slate-800 flex items-start gap-3 cursor-pointer hover:border-primary transition-colors ${opacityClass}">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${iconClass.split(' ')[2]}">
-                                <i class="fa-solid ${iconClass.split(' ')[0]} ${iconClass.split(' ')[1]} text-xs"></i>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <h4 class="text-[13px] font-bold text-slate-800 dark:text-slate-200 leading-tight">${n.title}</h4>
-                                <p class="text-[11px] text-slate-500 mt-0.5 leading-snug line-clamp-2">${n.message}</p>
-                                <span class="text-[9px] text-slate-400 mt-1.5 block font-semibold">${n.created_at}</span>
-                            </div>
-                            ${dot}
-                        </div>
-                        `;
-                    });
+                    window.allNotifications = data.notifications || [];
+                    buildNotificationFilterOptions();
+                    applyNotificationFilters();
                 }
             })
             .catch(err => console.error("Error fetching notifications:", err));
@@ -343,21 +552,72 @@
             });
         }
 
-        function handleNotificationClick(notifId, targetId, type) {
-            // Mark as read
+        function markNotificationReadAndNavigate(notifId, url) {
             fetch(`/inventory/api/notifications/read/${notifId}/`, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1]
                 }
-            }).then(() => {
-                toggleNotifications(); // Close panel
-                if (type === 'case1' || type === 'case2_resolved') {
-                    window.location.href = `/inventory/report/${targetId}/`;
-                } else if (type === 'case2' || type === 'case3') {
-                    window.location.href = `/inventory/?load_sheet_id=${targetId}`;
-                }
+            }).finally(() => {
+                toggleNotifications();
+                window.location.href = url;
             });
+        }
+
+        function handleNotificationClick(notifId, targetId, type, sheetExists, hasReport) {
+            let url;
+            if (type === 'case4') {
+                url = `/inventory/?load_notification_id=${notifId}`;
+            } else if (type === 'case1' || type === 'case2_resolved') {
+                url = (sheetExists && hasReport && targetId)
+                    ? `/inventory/report/${targetId}/`
+                    : `/inventory/?load_notification_id=${notifId}`;
+            } else if (type === 'case2' || type === 'case3') {
+                url = (sheetExists && targetId)
+                    ? `/inventory/?load_sheet_id=${targetId}`
+                    : `/inventory/?load_notification_id=${notifId}`;
+            } else {
+                url = `/inventory/?load_notification_id=${notifId}`;
+            }
+            markNotificationReadAndNavigate(notifId, url);
+        }
+
+        function handleCheckOriginalClick(notifId) {
+            markNotificationReadAndNavigate(notifId, `/inventory/?load_notification_id=${notifId}`);
+        }
+
+        async function deleteNotification(notifId) {
+            const confirmed = await AppModal.confirm(
+                'Delete Notification',
+                'Delete this notification and its saved raw data? This cannot be undone.',
+                { confirmColor: 'bg-red-600 hover:bg-red-700', confirmText: 'Delete', cancelText: 'Cancel' }
+            );
+            if (!confirmed) return;
+
+            try {
+                const res = await fetch(`/inventory/api/notifications/${notifId}/delete/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1]
+                    }
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    fetchNotifications();
+                } else {
+                    await AppModal.show({
+                        title: 'Delete Failed',
+                        message: data.message || 'Could not delete notification.',
+                        confirmText: 'Close',
+                    });
+                }
+            } catch {
+                await AppModal.show({
+                    title: 'Delete Failed',
+                    message: 'Could not delete notification.',
+                    confirmText: 'Close',
+                });
+            }
         }
 
         // Poll every 30 seconds

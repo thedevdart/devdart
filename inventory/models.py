@@ -62,6 +62,7 @@ class StockSheet(models.Model):
     uploaded_by_token = models.ForeignKey('CenterUploadToken', on_delete=models.SET_NULL, null=True, blank=True, related_name='uploaded_sheets')
     review_image = models.FileField(upload_to='stock_sheets/reviews/%Y/%m/', null=True, blank=True)
     raw_extracted_data = models.JSONField(null=True, blank=True)
+    ai_corrections = models.JSONField(null=True, blank=True, help_text="Auto-tally digit corrections applied during supervisor upload")
 
     class Meta:
         unique_together = ('center', 'date')
@@ -103,13 +104,25 @@ class Notification(models.Model):
     title = models.CharField(max_length=200)
     message = models.TextField()
     notif_type = models.CharField(max_length=20, choices=[
-        ('case1', 'Success'), 
-        ('case2', 'Untallied'), 
-        ('case3', 'Review')
+        ('case1', 'Success'),
+        ('case2', 'Untallied'),
+        ('case3', 'Review'),
+        ('case2_resolved', 'Resolved'),
+        ('case4', 'Replaced'),
     ])
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     target_id = models.IntegerField(null=True, blank=True)
+    snapshot_raw_extracted_data = models.JSONField(
+        null=True, blank=True, help_text='Gemini extraction at upload time for Check Original'
+    )
+    snapshot_center_id = models.IntegerField(null=True, blank=True)
+    snapshot_center_name = models.CharField(max_length=200, blank=True, default='')
+    snapshot_date = models.DateField(null=True, blank=True)
+    snapshot_image_path = models.CharField(max_length=500, blank=True, default='')
+    snapshot_ai_corrections = models.JSONField(
+        null=True, blank=True, help_text='AI corrections at upload time for Check Original'
+    )
 
     class Meta:
         ordering = ['-created_at']

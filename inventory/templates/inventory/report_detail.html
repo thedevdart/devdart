@@ -115,6 +115,33 @@
         </div>
     </div>
 
+    {% if ai_corrections %}
+    <div class="mb-6 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-md p-5 shadow-sm">
+        <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-md bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+                <h3 class="text-[11px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-300 mb-2">AI Auto-Corrections Applied</h3>
+                <p class="text-[10px] text-amber-700/80 dark:text-amber-400/80 font-medium mb-3">These values were adjusted during supervisor auto-tally because Gemini misread confusable handwritten digits.</p>
+                <ul class="space-y-2">
+                    {% for correction in ai_corrections %}
+                    <li class="text-[11px] text-slate-700 dark:text-slate-200 font-bold flex flex-wrap items-center gap-2">
+                        <span class="uppercase tracking-wide text-slate-900 dark:text-white">{{ correction.item }}</span>
+                        <span class="text-slate-400">·</span>
+                        <span class="text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest text-[10px]">{{ correction.field_label }}</span>
+                        <span class="font-mono text-amber-700 dark:text-amber-300 bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800">{{ correction.scanned }}</span>
+                        <i class="fa-solid fa-arrow-right text-[9px] text-slate-400"></i>
+                        <span class="font-mono text-emerald-700 dark:text-emerald-300 bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">{{ correction.corrected }}</span>
+                        <span class="text-[9px] text-slate-400 dark:text-slate-500 font-medium normal-case w-full sm:w-auto">{{ correction.reason }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="flex-1 grid grid-cols-1 xl:grid-cols-2 gap-6 pb-6 items-start min-h-[800px]">
         
         <div class="bg-slate-50 dark:bg-[#05080f] rounded-md flex flex-col relative group border border-slate-200 dark:border-slate-800 h-full max-h-[1000px] overflow-hidden transition-colors duration-300 shadow-inner">
@@ -141,9 +168,24 @@
         <div class="bg-white dark:bg-[#0a0f18] rounded-md shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col h-full max-h-[1000px] overflow-hidden transition-colors duration-300">
             
             <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#05080f] flex justify-between items-center flex-shrink-0">
-                <h3 class="font-black text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-widest flex items-center gap-2">
-                    <i class="fa-solid fa-table-list text-slate-400"></i> Master Ledger
-                </h3>
+                <div class="flex items-center gap-3">
+                    <h3 class="font-black text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-widest flex items-center gap-2">
+                        <i class="fa-solid fa-table-list text-slate-400"></i> Master Ledger
+                    </h3>
+                    {% if ai_corrections %}
+                    <div class="relative group cursor-help">
+                        <i class="fa-solid fa-circle-info text-amber-500 hover:text-amber-600 transition-colors text-base"></i>
+                        <div class="absolute left-0 top-6 w-72 bg-slate-900 text-white text-[10px] rounded-md p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                            <h4 class="font-black mb-2 text-amber-400 border-b border-slate-700 pb-2 uppercase tracking-widest">AI Corrections Made</h4>
+                            <ul class="space-y-1.5 text-slate-300 list-disc pl-4 max-h-40 overflow-y-auto font-medium">
+                                {% for correction in ai_corrections %}
+                                <li><b>{{ correction.item }}</b>: {{ correction.field_label }} {{ correction.scanned }} → {{ correction.corrected }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
                 <button onclick="addRow()" class="text-[10px] bg-primary text-white px-4 py-2 rounded-sm font-black hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-2 uppercase tracking-widest active:scale-95">
                     <i class="fa-solid fa-plus"></i> Add Row
                 </button>

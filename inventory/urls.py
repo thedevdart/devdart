@@ -26,13 +26,16 @@ urlpatterns = [
     path('master-items/', views.master_list, name='master_list'),
 
     # --- 6. APIs ---
-    path('api/analyze-sheet/', views.api_analyze_sheet, name='api_analyze_sheet'), 
+    path('api/analyze-sheet/', views.api_analyze_sheet, name='api_analyze_sheet'),
+    path('api/resolve-ledger-rows/', views.api_resolve_ledger_rows, name='api_resolve_ledger_rows'),
     path('api/check-uploads/', views.api_check_uploads, name='api_check_uploads'),
     path('api/attach-previous/', views.api_attach_previous_report, name='api_attach_previous_report'),
     path('api/get-previous-closing/', views.api_get_previous_closing, name='api_get_previous_closing'),
     path('api/notifications/', views.api_get_notifications, name='api_get_notifications'),
+    path('api/notifications/<int:notif_id>/original/', views.api_get_notification_original, name='api_get_notification_original'),
     path('api/notifications/read/all/', views.api_mark_all_notifications_read, name='api_mark_all_notifications_read'),
     path('api/notifications/read/<int:notif_id>/', views.api_mark_notification_read, name='api_mark_notification_read'),
+    path('api/notifications/<int:notif_id>/delete/', views.api_delete_notification, name='api_delete_notification'),
     path('api/raw-sheet/<int:sheet_id>/', views.api_get_raw_sheet, name='api_get_raw_sheet'),
 
     # --- 7. Reports & Sync ---
