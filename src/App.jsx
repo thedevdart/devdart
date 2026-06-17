@@ -6,9 +6,6 @@ import Hero from "./components/Hero.jsx";
 import Marquee from "./components/Marquee.jsx";
 import Services from "./components/Services.jsx";
 import Process from "./components/Process.jsx";
-import Work from "./components/Work.jsx";
-import Pricing from "./components/Pricing.jsx";
-import Faq from "./components/Faq.jsx";
 import Contact from "./components/Contact.jsx";
 import Footer from "./components/Footer.jsx";
 import LiveBackground from "./components/LiveBackground.jsx";
@@ -49,15 +46,6 @@ export default function App() {
             </SceneSection>
             <SceneSection variant="float">
               <Process />
-            </SceneSection>
-            <SceneSection variant="swingLeft">
-              <Work />
-            </SceneSection>
-            <SceneSection variant="zoom">
-              <Pricing />
-            </SceneSection>
-            <SceneSection variant="rise">
-              <Faq />
             </SceneSection>
             <SceneSection variant="float">
               <Contact />

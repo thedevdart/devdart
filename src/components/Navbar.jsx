@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { TargetIcon } from "./ui.jsx";
+import { handleSectionClick } from "../utils/scrollToSection.js";
 
 const LINKS = [
   { href: "#services", label: "Services" },
   { href: "#process", label: "How it works" },
-  { href: "#work", label: "Our work" },
-  { href: "#pricing", label: "Pricing" },
   { href: "#contact", label: "Contact" },
 ];
 
@@ -39,7 +38,8 @@ export default function Navbar() {
 
         {/* desktop CTA */}
         <motion.a
-          href="#pricing"
+          href="#contact"
+          onClick={(e) => handleSectionClick(e, "contact")}
           className="group relative hidden items-center gap-2 overflow-hidden rounded-lg bg-dart px-4 py-2 text-sm font-semibold text-ink transition-shadow hover:shadow-[0_0_24px_rgba(176,247,255,0.45)] md:flex"
           whileHover={{ y: -1, scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -48,7 +48,7 @@ export default function Navbar() {
             <span className="absolute h-full w-full animate-ping-slow rounded-full bg-paper/40" />
             <span className="h-1.5 w-1.5 rounded-full bg-paper" />
           </span>
-          Get started
+          Get a quote
         </motion.a>
 
         {/* mobile hamburger */}
@@ -106,11 +106,14 @@ export default function Navbar() {
                 </motion.a>
               ))}
               <a
-                href="#pricing"
-                onClick={() => setOpen(false)}
+                href="#contact"
+                onClick={(e) => {
+                  setOpen(false);
+                  handleSectionClick(e, "contact");
+                }}
                 className="mt-2 flex items-center justify-center gap-2 rounded-lg bg-dart px-4 py-3.5 text-base font-semibold text-ink"
               >
-                Get started
+                Get a quote
               </a>
             </div>
           </motion.div>

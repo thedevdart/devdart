@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import ProjectPreview from "./ProjectPreview.jsx";
+import { handleSectionClick } from "../utils/scrollToSection.js";
 
 const container = {
   hidden: {},
@@ -13,7 +14,7 @@ const item = {
 
 const STATS = [
   ["Within 24h", "We reply to every inquiry"],
-  ["$800/mo", "One flat monthly price"],
+  ["Custom quote", "Share your project details"],
   ["Fully managed", "We build, host & maintain"],
 ];
 
@@ -63,20 +64,13 @@ export default function Hero() {
 
           <motion.div variants={item} className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
             <motion.a
-              href="#pricing"
+              href="#contact"
+              onClick={(e) => handleSectionClick(e, "contact")}
               className="rounded-lg bg-dart px-6 py-3.5 text-center text-sm font-semibold text-ink transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(176,247,255,0.45)]"
               whileHover={{ y: -2, scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              Get started
-            </motion.a>
-            <motion.a
-              href="#work"
-              className="rounded-lg border border-line px-6 py-3.5 text-center text-sm text-paper transition-colors hover:border-dart/60 hover:text-dart"
-              whileHover={{ y: -2, scale: 1.01 }}
-              whileTap={{ scale: 0.985 }}
-            >
-              See our work
+              Get a quote
             </motion.a>
           </motion.div>
 

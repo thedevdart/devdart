@@ -1,13 +1,11 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { scrollToSection } from "../utils/scrollToSection.js";
 
 const ITEMS = [
   { id: "top", label: "Start" },
   { id: "services", label: "Services" },
   { id: "process", label: "Process" },
-  { id: "work", label: "Work" },
-  { id: "pricing", label: "Pricing" },
-  { id: "faq", label: "FAQ" },
   { id: "contact", label: "Contact" },
 ];
 
@@ -40,7 +38,7 @@ export default function JourneyNav() {
           return (
             <button
               key={item.id}
-              onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              onClick={() => scrollToSection(item.id)}
               className="relative flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left"
             >
               <motion.span

@@ -47,8 +47,13 @@
 html {
   background-color: var(--color-ink);
   scroll-behavior: smooth;
-  scroll-snap-type: y proximity;
+  scroll-padding-top: 5.5rem;
   overflow-x: hidden;
+}
+
+section[id],
+footer[id] {
+  scroll-margin-top: 5.5rem;
 }
 
 body {
@@ -125,7 +130,6 @@ body {
 /* 3D scroll stages */
 .scene {
   position: relative;
-  scroll-snap-align: start;
   transform-style: preserve-3d;
 }
 
@@ -145,7 +149,6 @@ body {
 @media (max-width: 768px) {
   html,
   body {
-    scroll-snap-type: none;
     overflow-x: hidden;
     max-width: 100vw;
   }
