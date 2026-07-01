@@ -14,6 +14,7 @@ function FooterBar() {
         </span>
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
           <a href="#services" className="transition-colors hover:text-paper">Services</a>
+          <a href="#work" className="transition-colors hover:text-paper">Projects</a>
           <a href="#process" className="transition-colors hover:text-paper">How it works</a>
           <a href="#contact" onClick={(e) => handleSectionClick(e, "contact")} className="transition-colors hover:text-paper">
             Contact

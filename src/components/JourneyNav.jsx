@@ -5,6 +5,7 @@ import { scrollToSection } from "../utils/scrollToSection.js";
 const ITEMS = [
   { id: "top", label: "Start" },
   { id: "services", label: "Services" },
+  { id: "work", label: "Projects" },
   { id: "process", label: "Process" },
   { id: "contact", label: "Contact" },
 ];

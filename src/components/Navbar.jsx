@@ -5,6 +5,7 @@ import { handleSectionClick } from "../utils/scrollToSection.js";
 
 const LINKS = [
   { href: "#services", label: "Services" },
+  { href: "#work", label: "Projects" },
   { href: "#process", label: "How it works" },
   { href: "#contact", label: "Contact" },
 ];

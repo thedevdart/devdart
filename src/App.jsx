@@ -5,6 +5,7 @@ import Navbar from "./components/Navbar.jsx";
 import Hero from "./components/Hero.jsx";
 import Marquee from "./components/Marquee.jsx";
 import Services from "./components/Services.jsx";
+import Work from "./components/Work.jsx";
 import Process from "./components/Process.jsx";
 import Contact from "./components/Contact.jsx";
 import Footer from "./components/Footer.jsx";
@@ -43,6 +44,9 @@ export default function App() {
             <Marquee />
             <SceneSection variant="swingRight">
               <Services />
+            </SceneSection>
+            <SceneSection variant="rise">
+              <Work />
             </SceneSection>
             <SceneSection variant="float">
               <Process />
