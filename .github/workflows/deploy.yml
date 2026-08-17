@@ -1,8 +1,9 @@
 name: Deploy to GitHub Pages
 
+# Disabled: the site is hosted on Vercel, which deploys on every push.
+# This workflow no longer runs automatically — it can still be triggered
+# manually from the Actions tab if GitHub Pages is ever needed again.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
