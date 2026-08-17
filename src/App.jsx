@@ -7,6 +7,7 @@ import Process from "./components/Process.jsx";
 import Faq from "./components/Faq.jsx";
 import Contact from "./components/Contact.jsx";
 import Footer from "./components/Footer.jsx";
+import CursorAura from "./components/CursorAura.jsx";
 import useTheme from "./hooks/useTheme.js";
 import { BookingProvider } from "./booking/BookingContext.jsx";
 import BookingModal from "./booking/BookingModal.jsx";
@@ -34,6 +35,7 @@ export default function App() {
 
   return (
     <BookingProvider>
+      <CursorAura />
       <Navbar theme={theme} onToggleTheme={toggle} />
       <main>
         <Hero />
