@@ -1,125 +1,195 @@
-import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { TargetIcon } from "./ui.jsx";
-import { handleSectionClick } from "../utils/scrollToSection.js";
+import { useEffect, useState } from "react";
+import { Icon, LogoMark } from "./ui.jsx";
+import { useBooking } from "../booking/BookingContext.jsx";
 
 const LINKS = [
+  { href: "#work", label: "Work" },
   { href: "#services", label: "Services" },
-  { href: "#work", label: "Projects" },
-  { href: "#process", label: "How it works" },
-  { href: "#contact", label: "Contact" },
+  { href: "#process", label: "Process" },
+  { href: "#faq", label: "FAQ" },
 ];
 
-export default function Navbar() {
-  const [open, setOpen] = useState(false);
+const navLinkStyle = {
+  color: "color-mix(in srgb, var(--color-text) 76%, transparent)",
+  transition: "color .25s ease",
+};
+
+export default function Navbar({ theme, onToggleTheme }) {
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const isDark = theme === "dark";
+  const { openBooking } = useBooking();
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
-    <motion.header
-      initial={{ y: -64, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.7, delay: 0.2, ease: [0.21, 0.6, 0.35, 1] }}
-      className="fixed inset-x-0 top-0 z-70 px-3 sm:px-0"
+    <header
+      id="ddNav"
+      style={{
+        position: "fixed",
+        inset: "0 0 auto 0",
+        zIndex: 90,
+        background: "color-mix(in srgb, var(--color-bg) 84%, transparent)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        borderBottom: `1px solid ${
+          scrolled ? "var(--color-divider)" : "transparent"
+        }`,
+        boxShadow: scrolled ? "var(--shadow-sm)" : "none",
+        transition: "border-color .3s ease, box-shadow .3s ease",
+      }}
     >
-      <nav className="mx-auto mt-4 flex max-w-6xl items-center justify-between rounded-xl border border-line/80 bg-ink-2/70 px-4 py-2.5 backdrop-blur-md md:px-6">
-        <a href="#top" onClick={() => setOpen(false)} className="group flex items-center gap-2.5">
-          <TargetIcon size={20} className="text-dart transition-transform duration-500 group-hover:rotate-90" />
-          <span className="text-sm font-bold tracking-tight">
-            Dev<span className="text-dart">Dart</span>
+      <nav
+        style={{
+          maxWidth: 1240,
+          margin: "0 auto",
+          padding: "0 clamp(20px,5vw,72px)",
+          height: 66,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 24,
+        }}
+      >
+        {/* brand */}
+        <a
+          href="#top"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 10,
+            color: "var(--color-text)",
+          }}
+        >
+          <span style={{ display: "inline-flex", color: "var(--color-accent)" }}>
+            <LogoMark size={24} />
+          </span>
+          <span
+            style={{
+              fontFamily: "var(--font-heading)",
+              fontWeight: 600,
+              fontSize: 21,
+              letterSpacing: ".01em",
+              textTransform: "uppercase",
+            }}
+          >
+            Dev<span style={{ color: "var(--accent-text)" }}>Dart</span>
           </span>
         </a>
 
-        {/* desktop links */}
-        <div className="hidden items-center gap-8 text-sm text-fog md:flex">
+        {/* links */}
+        <div
+          className="dd-navlinks"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 32,
+            fontSize: 14,
+          }}
+        >
           {LINKS.map((l) => (
-            <a key={l.href} href={l.href} className="transition-colors hover:text-paper">
+            <a key={l.href} className="dd-nav" href={l.href} style={navLinkStyle}>
               {l.label}
             </a>
           ))}
         </div>
 
-        {/* desktop CTA */}
-        <motion.a
-          href="#contact"
-          onClick={(e) => handleSectionClick(e, "contact")}
-          className="group relative hidden items-center gap-2 overflow-hidden rounded-lg bg-dart px-4 py-2 text-sm font-semibold text-ink transition-shadow hover:shadow-[0_0_24px_rgba(176,247,255,0.45)] md:flex"
-          whileHover={{ y: -1, scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute h-full w-full animate-ping-slow rounded-full bg-paper/40" />
-            <span className="h-1.5 w-1.5 rounded-full bg-paper" />
-          </span>
-          Get a quote
-        </motion.a>
-
-        {/* mobile hamburger */}
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-label={open ? "Close menu" : "Open menu"}
-          aria-expanded={open}
-          className="relative h-9 w-9 rounded-lg border border-line/80 md:hidden"
-        >
-          <span className="absolute left-1/2 top-1/2 block h-3.5 w-5 -translate-x-1/2 -translate-y-1/2">
-            <motion.span
-              className="absolute left-0 top-0 h-0.5 w-full rounded-full bg-paper"
-              animate={{ rotate: open ? 45 : 0, y: open ? 6 : 0 }}
-              transition={{ duration: 0.25 }}
-            />
-            <motion.span
-              className="absolute left-0 top-1/2 h-0.5 w-full -translate-y-1/2 rounded-full bg-paper"
-              animate={{ opacity: open ? 0 : 1 }}
-              transition={{ duration: 0.2 }}
-            />
-            <motion.span
-              className="absolute bottom-0 left-0 h-0.5 w-full rounded-full bg-paper"
-              animate={{ rotate: open ? -45 : 0, y: open ? -6 : 0 }}
-              transition={{ duration: 0.25 }}
-            />
-          </span>
-        </button>
+        {/* actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            className="btn btn-secondary btn-icon"
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            title="Switch theme"
+          >
+            {isDark ? <Icon.Sun /> : <Icon.Moon />}
+          </button>
+          <button
+            type="button"
+            onClick={openBooking}
+            className="btn btn-primary"
+            style={{ whiteSpace: "nowrap" }}
+          >
+            Book a free call
+          </button>
+          <button
+            className="dd-burger"
+            type="button"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((o) => !o)}
+            style={{
+              display: "none",
+              width: 40,
+              height: 40,
+              border: "1px solid var(--color-divider)",
+              background: "none",
+              cursor: "pointer",
+              color: "var(--color-text)",
+              padding: 0,
+              alignItems: "center",
+              justifyContent: "center",
+              flex: "none",
+            }}
+          >
+            {menuOpen ? <Icon.Close /> : <Icon.Menu />}
+          </button>
+        </div>
       </nav>
 
-      {/* mobile dropdown menu */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            key="mobile-menu"
-            initial={{ opacity: 0, y: -12, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: "auto" }}
-            exit={{ opacity: 0, y: -12, height: 0 }}
-            transition={{ duration: 0.3, ease: [0.21, 0.6, 0.35, 1] }}
-            className="mx-auto mt-2 max-w-6xl overflow-hidden rounded-xl border border-line/80 bg-ink-2/95 backdrop-blur-md md:hidden"
+      {/* mobile dropdown */}
+      {menuOpen && (
+        <div
+          id="ddMobileMenu"
+          style={{
+            borderTop: "1px solid var(--color-divider)",
+            background: "var(--color-bg)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              padding: "8px clamp(20px,5vw,72px) 18px",
+            }}
           >
-            <div className="flex flex-col p-2">
-              {LINKS.map((l, i) => (
-                <motion.a
-                  key={l.href}
-                  href={l.href}
-                  onClick={() => setOpen(false)}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.05 + i * 0.05 }}
-                  className="flex items-center justify-between rounded-lg px-4 py-3 text-base text-paper/90 active:bg-dart/10"
-                >
-                  {l.label}
-                  <span className="text-dart">→</span>
-                </motion.a>
-              ))}
+            {LINKS.map((l, i) => (
               <a
-                href="#contact"
-                onClick={(e) => {
-                  setOpen(false);
-                  handleSectionClick(e, "contact");
+                key={l.href}
+                className="dd-mlink"
+                href={l.href}
+                onClick={() => setMenuOpen(false)}
+                style={{
+                  padding: "13px 0",
+                  fontSize: 16,
+                  color: "color-mix(in srgb, var(--color-text) 82%, transparent)",
+                  borderBottom:
+                    i < LINKS.length - 1 ? "1px solid var(--color-divider)" : "none",
                 }}
-                className="mt-2 flex items-center justify-center gap-2 rounded-lg bg-dart px-4 py-3.5 text-base font-semibold text-ink"
               >
-                Get a quote
+                {l.label}
               </a>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.header>
+            ))}
+            <button
+              type="button"
+              className="btn btn-primary btn-block"
+              onClick={() => {
+                setMenuOpen(false);
+                openBooking();
+              }}
+              style={{ marginTop: 14 }}
+            >
+              Book a free call
+            </button>
+          </div>
+        </div>
+      )}
+    </header>
   );
 }

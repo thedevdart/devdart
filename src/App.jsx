@@ -1,63 +1,50 @@
-import { useState } from "react";
-import { AnimatePresence, motion, useScroll, useSpring } from "framer-motion";
-import Preloader from "./components/Preloader.jsx";
+import { useEffect, useState } from "react";
 import Navbar from "./components/Navbar.jsx";
 import Hero from "./components/Hero.jsx";
-import Marquee from "./components/Marquee.jsx";
-import Services from "./components/Services.jsx";
 import Work from "./components/Work.jsx";
+import Services from "./components/Services.jsx";
 import Process from "./components/Process.jsx";
+import Faq from "./components/Faq.jsx";
 import Contact from "./components/Contact.jsx";
 import Footer from "./components/Footer.jsx";
-import LiveBackground from "./components/LiveBackground.jsx";
-import CursorAura from "./components/CursorAura.jsx";
-import JourneyNav from "./components/JourneyNav.jsx";
-import SceneSection from "./components/SceneSection.jsx";
+import useTheme from "./hooks/useTheme.js";
+import { BookingProvider } from "./booking/BookingContext.jsx";
+import BookingModal from "./booking/BookingModal.jsx";
+import AdminPanel from "./admin/AdminPanel.jsx";
+
+// tiny hash router — "#/admin" shows the admin panel, everything else the site
+function useIsAdminRoute() {
+  const [isAdmin, setIsAdmin] = useState(
+    () => window.location.hash.replace(/^#/, "").startsWith("/admin")
+  );
+  useEffect(() => {
+    const onHash = () =>
+      setIsAdmin(window.location.hash.replace(/^#/, "").startsWith("/admin"));
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  return isAdmin;
+}
 
 export default function App() {
-  const [loading, setLoading] = useState(true);
-  const { scrollYProgress } = useScroll();
-  const progress = useSpring(scrollYProgress, { stiffness: 120, damping: 30 });
+  const { theme, toggle } = useTheme();
+  const isAdmin = useIsAdminRoute();
+
+  if (isAdmin) return <AdminPanel />;
 
   return (
-    <div className="noise bg-surface relative min-h-screen text-paper">
-      <LiveBackground />
-      <CursorAura />
-      <AnimatePresence mode="wait">
-        {loading && <Preloader key="preloader" onDone={() => setLoading(false)} />}
-      </AnimatePresence>
-
-      {/* scroll progress hairline */}
-      <motion.div
-        className="fixed inset-x-0 top-0 z-80 h-px origin-left bg-dart"
-        style={{ scaleX: progress }}
-      />
-
-      {!loading && (
-        <div className="relative z-10">
-          <JourneyNav />
-          <Navbar />
-          <main>
-            <SceneSection variant="rise">
-              <Hero />
-            </SceneSection>
-            <Marquee />
-            <SceneSection variant="swingRight">
-              <Services />
-            </SceneSection>
-            <SceneSection variant="rise">
-              <Work />
-            </SceneSection>
-            <SceneSection variant="float">
-              <Process />
-            </SceneSection>
-            <SceneSection variant="float">
-              <Contact />
-            </SceneSection>
-          </main>
-          <Footer />
-        </div>
-      )}
-    </div>
+    <BookingProvider>
+      <Navbar theme={theme} onToggleTheme={toggle} />
+      <main>
+        <Hero />
+        <Work />
+        <Services />
+        <Process />
+        <Faq />
+        <Contact />
+      </main>
+      <Footer />
+      <BookingModal />
+    </BookingProvider>
   );
 }

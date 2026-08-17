@@ -1,58 +1,161 @@
-import { motion } from "framer-motion";
-import { Reveal, SectionTag, SectionTitle } from "./ui.jsx";
+import { Marks, Reveal } from "./ui.jsx";
+import { useBooking } from "../booking/BookingContext.jsx";
 
-const CONTACTS = [
+const CARDS = [
   {
     label: "Email",
     value: "team@devdart.in",
+    desc: "Share your project details and we'll get back with a quote.",
     href: "mailto:team@devdart.in?subject=Project%20inquiry",
-    description: "Share your project details and we'll get back with a quote as soon as possible.",
+    external: false,
   },
   {
     label: "Instagram",
     value: "@thedevdart",
+    desc: "Follow our work, behind-the-scenes and client launches.",
     href: "https://instagram.com/thedevdart",
-    description: "Follow our work, behind-the-scenes, and client launches.",
     external: true,
   },
 ];
 
-export default function Contact() {
-  return (
-    <section id="contact" className="relative scroll-mt-24 border-t border-line py-20 md:py-28">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/2 right-0 h-96 w-96 -translate-y-1/2 translate-x-1/3 rounded-full bg-dart/5 blur-[120px]" />
-      </div>
+const markColor = "color-mix(in srgb, var(--invert-text) 45%, transparent)";
 
-      <div className="relative mx-auto max-w-3xl px-5 text-center">
-        <SectionTag label="Contact" />
-        <SectionTitle className="mx-auto">Tell us about your project.</SectionTitle>
-        <Reveal delay={0.15}>
-          <p className="mx-auto mt-6 max-w-lg text-sm leading-relaxed text-fog md:text-base">
-            Email us the details of what you're building and we'll get back with a quote as soon as possible.
+export default function Contact() {
+  const { openBooking } = useBooking();
+  return (
+    <section
+      id="contact"
+      style={{
+        borderTop: "1px solid var(--color-divider)",
+        background: "var(--invert-bg)",
+        color: "var(--invert-text)",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1040,
+          margin: "0 auto",
+          padding: "104px clamp(20px,5vw,72px)",
+          textAlign: "center",
+        }}
+      >
+        <Reveal>
+          <span
+            style={{
+              display: "block",
+              fontSize: 13,
+              letterSpacing: ".16em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+              color: "var(--invert-accent)",
+            }}
+          >
+            Ready to get started?
+          </span>
+          <h2
+            style={{
+              fontFamily: "var(--font-heading)",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: ".01em",
+              lineHeight: 1.02,
+              fontSize: "clamp(38px,6vw,84px)",
+              margin: "24px auto 0",
+              maxWidth: "15ch",
+            }}
+          >
+            Let's build something{" "}
+            <span style={{ color: "var(--invert-accent)" }}>your business deserves.</span>
+          </h2>
+          <p
+            style={{
+              fontSize: 16,
+              lineHeight: 1.6,
+              margin: "26px auto 0",
+              maxWidth: "52ch",
+              color: "color-mix(in srgb, var(--invert-text) 72%, transparent)",
+            }}
+          >
+            Book a free 30-minute call — pick a time that suits you and we'll talk
+            through what you're building. Prefer email? Reach us below.
           </p>
+          <button
+            type="button"
+            onClick={openBooking}
+            className="btn"
+            style={{
+              marginTop: 30,
+              background: "var(--invert-accent)",
+              color: "var(--invert-bg)",
+              borderColor: "var(--invert-accent)",
+            }}
+          >
+            Book a free call
+          </button>
         </Reveal>
 
-        <div className="mt-12 grid gap-4 sm:grid-cols-2">
-          {CONTACTS.map((item, i) => (
-            <Reveal key={item.label} delay={0.2 + i * 0.08}>
-              <motion.a
-                href={item.href}
-                target={item.external ? "_blank" : undefined}
-                rel={item.external ? "noopener noreferrer" : undefined}
-                className="group flex h-full flex-col rounded-xl border border-line bg-ink/60 p-6 text-left transition-colors hover:border-dart/40 hover:bg-dart/5"
-                whileHover={{ y: -2 }}
-                whileTap={{ scale: 0.985 }}
+        <Reveal
+          className="dd-contact-grid"
+          delay={0.09}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 16,
+            marginTop: 48,
+            textAlign: "left",
+          }}
+        >
+          {CARDS.map((card) => (
+            <a
+              key={card.label}
+              className="dd-contact blueprint"
+              href={card.href}
+              {...(card.external
+                ? { target: "_blank", rel: "noopener noreferrer" }
+                : {})}
+              style={{
+                display: "block",
+                border: "1px solid color-mix(in srgb, var(--invert-text) 24%, transparent)",
+                padding: 26,
+                color: "var(--invert-text)",
+                transition: "background .3s, border-color .3s",
+              }}
+            >
+              <Marks color={markColor} />
+              <span
+                style={{
+                  fontSize: 12,
+                  letterSpacing: ".16em",
+                  textTransform: "uppercase",
+                  fontWeight: 600,
+                  color: "var(--invert-accent)",
+                }}
               >
-                <span className="text-xs font-semibold tracking-[0.15em] text-dart uppercase">{item.label}</span>
-                <span className="mt-3 text-lg font-semibold tracking-tight text-paper transition-colors group-hover:text-dart">
-                  {item.value}
-                </span>
-                <span className="mt-2 text-sm leading-relaxed text-fog">{item.description}</span>
-              </motion.a>
-            </Reveal>
+                {card.label}
+              </span>
+              <p
+                style={{
+                  fontFamily: "var(--font-heading)",
+                  fontWeight: 600,
+                  fontSize: 24,
+                  margin: "12px 0 0",
+                }}
+              >
+                {card.value}
+              </p>
+              <p
+                style={{
+                  fontSize: 14,
+                  lineHeight: 1.55,
+                  margin: "8px 0 0",
+                  color: "color-mix(in srgb, var(--invert-text) 66%, transparent)",
+                }}
+              >
+                {card.desc}
+              </p>
+            </a>
           ))}
-        </div>
+        </Reveal>
       </div>
     </section>
   );

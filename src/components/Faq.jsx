@@ -1,18 +1,18 @@
 import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Reveal, SectionTag, SectionTitle } from "./ui.jsx";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Kicker, Reveal, EASE } from "./ui.jsx";
 
-const FAQS = [
+const ITEMS = [
   {
     q: "Why pay monthly instead of a one-time project fee?",
-    a: "Websites and tools need ongoing care — updates, security, new features, and fixes. A monthly plan means we're always here after launch, not gone once the invoice is paid. You can pause anytime when there's nothing in the queue.",
+    a: "Websites and tools need ongoing care — updates, security, new features and fixes. A monthly plan means we're always here after launch, not gone once the invoice is paid. You can pause anytime when there's nothing in the queue.",
   },
   {
     q: "How quickly will my site be ready?",
     a: "Most business websites go live in 2–3 weeks. Smaller changes often ship within a few days. You'll see a live preview from week one, so you're never waiting without updates.",
   },
   {
-    q: "What does 'unlimited requests' mean?",
+    q: 'What does "unlimited requests" mean?',
     a: "Add as many tasks to your list as you like — new pages, design tweaks, automations, whatever you need. We work through them one at a time so every job gets our full attention.",
   },
   {
@@ -21,32 +21,73 @@ const FAQS = [
   },
   {
     q: "What if I only need help for a short time?",
-    a: "Subscribe for a month or two, get your site built and launched, then pause. Many clients work with us in cycles — that's exactly what the plan is designed for.",
+    a: "Work with us for a month or two, get your site built and launched, then pause. Many clients work in cycles — that's exactly what we're set up for.",
   },
 ];
 
 export default function Faq() {
-  const [open, setOpen] = useState(0);
+  const reduce = useReducedMotion();
+  const [open, setOpen] = useState(null);
 
   return (
-    <section id="faq" className="min-h-screen py-20 md:py-28">
-      <div className="mx-auto max-w-3xl px-5">
-        <SectionTag label="Common questions" />
-        <SectionTitle>Answers before you reach out.</SectionTitle>
+    <section
+      id="faq"
+      style={{ borderTop: "1px solid var(--color-divider)", background: "var(--color-surface)" }}
+    >
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "88px clamp(20px,5vw,72px)" }}>
+        <Reveal>
+          <Kicker>04 · Common questions</Kicker>
+          <h2
+            style={{
+              fontFamily: "var(--font-heading)",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: ".01em",
+              fontSize: "clamp(32px,4vw,56px)",
+              lineHeight: 1.02,
+              margin: 0,
+            }}
+          >
+            Answers before you reach out.
+          </h2>
+        </Reveal>
 
-        <div className="mt-12 divide-y divide-line border-y border-line">
-          {FAQS.map((faq, i) => {
+        <Reveal style={{ marginTop: 44, borderTop: "1px solid var(--color-divider)" }}>
+          {ITEMS.map((item, i) => {
             const isOpen = open === i;
             return (
-              <Reveal key={i} delay={i * 0.05}>
+              <div key={item.q} style={{ borderBottom: "1px solid var(--color-divider)" }}>
                 <button
-                  onClick={() => setOpen(isOpen ? -1 : i)}
-                  className="flex w-full items-center justify-between gap-6 py-5 text-left transition-colors hover:text-dart"
+                  type="button"
+                  aria-expanded={isOpen}
+                  onClick={() => setOpen(isOpen ? null : i)}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 24,
+                    padding: "22px 0",
+                    background: "none",
+                    border: 0,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    color: "var(--color-text)",
+                    fontFamily: "var(--font-body)",
+                  }}
                 >
-                  <span className="font-medium tracking-tight md:text-lg">{faq.q}</span>
+                  <span style={{ fontSize: 17, fontWeight: 500 }}>{item.q}</span>
                   <motion.span
+                    aria-hidden="true"
                     animate={{ rotate: isOpen ? 45 : 0 }}
-                    className="shrink-0 text-xl text-dart"
+                    transition={reduce ? { duration: 0 } : { duration: 0.35, ease: EASE }}
+                    style={{
+                      flexShrink: 0,
+                      fontFamily: "var(--font-heading)",
+                      fontSize: 26,
+                      color: "var(--color-accent)",
+                      lineHeight: 1,
+                    }}
                   >
                     +
                   </motion.span>
@@ -54,20 +95,31 @@ export default function Faq() {
                 <AnimatePresence initial={false}>
                   {isOpen && (
                     <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.35, ease: [0.21, 0.6, 0.35, 1] }}
-                      className="overflow-hidden"
+                      initial={reduce ? false : { height: 0 }}
+                      animate={{ height: "auto" }}
+                      exit={reduce ? { height: 0 } : { height: 0 }}
+                      transition={reduce ? { duration: 0 } : { duration: 0.38, ease: EASE }}
+                      style={{ overflow: "hidden" }}
                     >
-                      <p className="pb-6 text-sm leading-relaxed text-fog">{faq.a}</p>
+                      <p
+                        style={{
+                          fontSize: 15,
+                          lineHeight: 1.65,
+                          margin: 0,
+                          padding: "0 0 24px",
+                          maxWidth: "62ch",
+                          color: "color-mix(in srgb, var(--color-text) 76%, transparent)",
+                        }}
+                      >
+                        {item.a}
+                      </p>
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </Reveal>
+              </div>
             );
           })}
-        </div>
+        </Reveal>
       </div>
     </section>
   );

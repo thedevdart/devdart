@@ -1,71 +1,167 @@
-import { useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
-import { Reveal, SectionTag, SectionTitle } from "./ui.jsx";
+import { motion, useReducedMotion } from "framer-motion";
+import { Kicker, Reveal, EASE } from "./ui.jsx";
 
 const STEPS = [
   {
-    step: "Step 1",
+    n: "01",
+    phase: "Day 1",
     title: "Tell us what you need",
-    desc: "A quick 30-minute call. We learn about your business, your goals, and what success looks like. No long proposals or confusing jargon.",
-    meta: "Day 1",
+    desc:
+      "A quick 30-minute call. We learn about your business, your goals, and what success looks like. No jargon.",
   },
   {
-    step: "Step 2",
+    n: "02",
+    phase: "Weeks 1–3",
     title: "We design and build",
-    desc: "You get a live preview link from week one. Share feedback, request changes, and watch your site come together — no waiting in the dark.",
-    meta: "Weeks 1–3",
+    desc:
+      "You get a live preview link from week one. Share feedback, request changes, watch it come together — no waiting in the dark.",
   },
   {
-    step: "Step 3",
+    n: "03",
+    phase: "Launch day",
     title: "We launch it for you",
-    desc: "Domain, hosting, security, and go-live — all handled by us. You don't touch a single technical setting.",
-    meta: "Launch day",
+    desc:
+      "Domain, hosting, security and go-live — all handled by us. You don't touch a single technical setting.",
   },
   {
-    step: "Step 4",
+    n: "04",
+    phase: "Every month",
     title: "We keep it running",
-    desc: "Updates, fixes, new pages, and improvements every month. Your site stays fast, secure, and up to date — without you lifting a finger.",
-    meta: "Every month",
+    desc:
+      "Updates, fixes, new pages and improvements every month — fast, secure and current, without you lifting a finger.",
   },
 ];
 
 export default function Process() {
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start 70%", "end 75%"] });
-  const lineScale = useTransform(scrollYProgress, [0, 1], [0, 1]);
-
+  const reduce = useReducedMotion();
   return (
-    <section id="process" className="relative min-h-screen border-t border-line bg-plum/35 py-20 md:py-28">
-      <div className="mx-auto max-w-6xl px-5">
-        <SectionTag label="How it works" />
-        <SectionTitle>
-          From first call to live site — <span className="text-fog">we handle everything.</span>
-        </SectionTitle>
+    <section id="process" style={{ borderTop: "1px solid var(--color-divider)" }}>
+      <div style={{ maxWidth: 1240, margin: "0 auto", padding: "88px clamp(20px,5vw,72px)" }}>
+        <Reveal>
+          <Kicker>03 · How it works</Kicker>
+          <h2
+            style={{
+              fontFamily: "var(--font-heading)",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: ".01em",
+              fontSize: "clamp(32px,4vw,56px)",
+              lineHeight: 1.02,
+              margin: 0,
+              maxWidth: "26ch",
+            }}
+          >
+            From first call to live site —{" "}
+            <span style={{ color: "color-mix(in srgb, var(--color-text) 45%, transparent)" }}>
+              we handle everything.
+            </span>
+          </h2>
+        </Reveal>
 
-        <div ref={ref} className="relative mt-16 ml-3 md:ml-1">
-          <div className="absolute top-2 bottom-2 left-[7px] w-px bg-line" />
+        <div style={{ position: "relative", marginTop: 56 }}>
+          {/* connector track + drawn accent line */}
+          <div
+            className="dd-proc-line"
+            style={{
+              position: "absolute",
+              top: 7,
+              left: 0,
+              right: 0,
+              height: 1,
+              background: "var(--color-divider)",
+            }}
+          />
           <motion.div
-            className="absolute top-2 bottom-2 left-[7px] w-px origin-top bg-dart shadow-[0_0_12px_rgba(176,247,255,0.55)]"
-            style={{ scaleY: lineScale }}
+            className="dd-proc-line"
+            style={{
+              position: "absolute",
+              top: 7,
+              left: 0,
+              right: 0,
+              height: 1,
+              background: "var(--color-accent)",
+              transformOrigin: "left",
+            }}
+            initial={reduce ? false : { scaleX: 0 }}
+            whileInView={{ scaleX: 1 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 1.5, ease: EASE }}
           />
 
-          <div className="space-y-12">
-            {STEPS.map((step) => (
-              <Reveal key={step.title} delay={0.05}>
-                <div className="relative pl-12">
-                  <span className="absolute top-1.5 left-0 flex h-[15px] w-[15px] items-center justify-center rounded-full border border-dart bg-plum">
-                    <span className="h-[5px] w-[5px] rounded-full bg-dart" />
+          <div
+            className="dd-proc-grid"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              gap: "clamp(20px,3vw,40px)",
+            }}
+          >
+            {STEPS.map((step, i) => (
+              <Reveal
+                key={step.n}
+                className="dd-step"
+                delay={i * 0.09}
+                style={{ paddingTop: 30, position: "relative" }}
+              >
+                <span
+                  className="dd-step-node"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: 15,
+                    height: 15,
+                    border: "1px solid var(--color-accent)",
+                    background: "var(--color-bg)",
+                    transition: "background .3s",
+                  }}
+                />
+                <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-heading)",
+                      fontWeight: 600,
+                      fontSize: 32,
+                      letterSpacing: ".01em",
+                      color: "var(--accent-text)",
+                      fontFeatureSettings: "'tnum' 1",
+                    }}
+                  >
+                    {step.n}
                   </span>
-
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                    <span className="text-xs font-semibold tracking-wide text-dart uppercase">{step.step}</span>
-                    <span className="ml-auto rounded-full border border-line px-2.5 py-0.5 text-[11px] text-fog">
-                      {step.meta}
-                    </span>
-                  </div>
-                  <h3 className="mt-2 text-2xl font-semibold tracking-tight">{step.title}</h3>
-                  <p className="mt-2 max-w-xl text-sm leading-relaxed text-fog">{step.desc}</p>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      letterSpacing: ".12em",
+                      textTransform: "uppercase",
+                      color: "color-mix(in srgb, var(--color-text) 55%, transparent)",
+                    }}
+                  >
+                    {step.phase}
+                  </span>
                 </div>
+                <h3
+                  style={{
+                    fontFamily: "var(--font-heading)",
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: ".01em",
+                    fontSize: 22,
+                    margin: "12px 0 0",
+                  }}
+                >
+                  {step.title}
+                </h3>
+                <p
+                  style={{
+                    fontSize: 14,
+                    lineHeight: 1.6,
+                    margin: "10px 0 0",
+                    color: "color-mix(in srgb, var(--color-text) 76%, transparent)",
+                  }}
+                >
+                  {step.desc}
+                </p>
               </Reveal>
             ))}
           </div>

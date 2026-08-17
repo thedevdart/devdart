@@ -1,162 +1,164 @@
-import { motion } from "framer-motion";
-import { Reveal, SectionTag, SectionTitle } from "./ui.jsx";
+import { Marks, Kicker, Reveal, Icon } from "./ui.jsx";
 
-/* --- animated mini-visuals, one per service --- */
-
-function SiteVisual() {
-  return (
-    <div className="flex h-full flex-col rounded-lg border border-line bg-ink p-3">
-      <div className="mb-3 flex items-center gap-1.5">
-        <span className="h-2 w-2 rounded-full bg-line" />
-        <span className="h-2 w-2 rounded-full bg-line" />
-        <span className="h-2 w-2 rounded-full bg-dart/60" />
-        <span className="ml-2 h-3 flex-1 rounded-sm bg-ink-3" />
-      </div>
-      {[["60%", 0], ["90%", 0.15], ["75%", 0.3], ["40%", 0.45]].map(([w, d], i) => (
-        <motion.div
-          key={i}
-          className="mb-2 h-2.5 rounded-sm bg-ink-3"
-          style={{ width: w }}
-          animate={{ opacity: [0.4, 1, 0.4] }}
-          transition={{ duration: 2.4, delay: d, repeat: Infinity }}
-        />
-      ))}
-      <motion.div
-        className="mt-auto h-6 w-24 rounded-md bg-dart/80"
-        animate={{ scale: [1, 1.04, 1] }}
-        transition={{ duration: 2, repeat: Infinity }}
-      />
-    </div>
-  );
-}
-
-function ToolVisual() {
-  const bars = [44, 70, 32, 86, 58, 76];
-  return (
-    <div className="flex h-full items-end gap-2 rounded-lg border border-line bg-ink p-4">
-      {bars.map((h, i) => (
-        <motion.div
-          key={i}
-          className="w-full rounded-t-sm bg-dart/70"
-          initial={{ height: 8 }}
-          whileInView={{ height: `${h}%` }}
-          viewport={{ once: false, margin: "-40px" }}
-          animate={{ opacity: [0.6, 1, 0.6] }}
-          transition={{
-            height: { duration: 0.8, delay: i * 0.08, ease: "easeOut" },
-            opacity: { duration: 3, delay: i * 0.2, repeat: Infinity },
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function AutomationVisual() {
-  return (
-    <div className="flex h-full items-center justify-center rounded-lg border border-line bg-ink p-3">
-      <svg viewBox="0 0 200 90" className="w-full">
-        <path id="flow" d="M16 45 H70 M90 45 H144 M164 45 H190" stroke="rgba(131, 0, 139, 0.45)" strokeWidth="1.5" fill="none" />
-        {[16, 90, 164].map((x, i) => (
-          <motion.rect
-            key={x}
-            x={x}
-            y="33"
-            width="24"
-            height="24"
-            rx="6"
-            fill="none"
-            stroke="#b0f7ff"
-            strokeWidth="1.5"
-            animate={{ opacity: [0.35, 1, 0.35] }}
-            transition={{ duration: 1.8, delay: i * 0.55, repeat: Infinity }}
-          />
-        ))}
-        <motion.circle
-          cx={28}
-          cy={45}
-          r="3"
-          fill="#b0f7ff"
-          animate={{ cx: [28, 102, 176] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
-        />
-      </svg>
-    </div>
-  );
-}
-
-function HostVisual() {
-  return (
-    <div className="flex h-full flex-col justify-center gap-2 rounded-lg border border-line bg-ink p-4">
-      {[0, 1, 2].map((row) => (
-        <div key={row} className="flex items-center gap-2 rounded-md border border-line px-3 py-2">
-          <motion.span
-            className="h-1.5 w-1.5 rounded-full bg-dart"
-            animate={{ opacity: [1, 0.2, 1] }}
-            transition={{ duration: 1.4, delay: row * 0.4, repeat: Infinity }}
-          />
-          <span className="h-1.5 w-12 rounded-full bg-ink-3" />
-          <motion.span
-            className="ml-auto font-mono text-[9px] text-dart/80"
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 2, delay: row * 0.3, repeat: Infinity }}
-          >
-            99.99%
-          </motion.span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-const SERVICES = [
+const ROWS = [
   {
+    n: "01",
+    Icon: Icon.Monitor,
     title: "Websites",
-    desc: "Professional sites that look great on every device, show up on Google, and turn visitors into customers. Built for your brand — not from a template.",
-    visual: <SiteVisual />,
+    desc:
+      "Professional sites that look great on every device, show up on Google, and turn visitors into customers. Built for your brand — not from a template.",
   },
   {
+    n: "02",
+    Icon: Icon.Dashboard,
     title: "Business tools",
-    desc: "Custom dashboards, order trackers, and admin panels built around how your team actually works. Replace spreadsheets with something your staff will love using.",
-    visual: <ToolVisual />,
+    desc:
+      "Custom dashboards, order trackers, and admin panels built around how your team actually works. Replace spreadsheets with something your staff will love using.",
   },
   {
+    n: "03",
+    Icon: Icon.Workflow,
     title: "Automation",
-    desc: "Stop doing the same tasks by hand. We connect your tools so invoices, reports, and notifications run automatically — saving hours every week.",
-    visual: <AutomationVisual />,
+    desc:
+      "Stop doing the same tasks by hand. We connect your tools so invoices, reports and notifications run automatically — saving hours every week.",
   },
   {
+    n: "04",
+    Icon: Icon.Server,
     title: "Hosting & care",
-    desc: "We host your site, keep it secure, fix problems, and make updates whenever you need them. You never have to think about servers or downtime.",
-    visual: <HostVisual />,
+    desc:
+      "We host your site, keep it secure, fix problems, and make updates whenever you need them. You never have to think about servers or downtime.",
   },
 ];
 
+const metaCell = {
+  borderLeft: "1px solid var(--color-divider)",
+  padding: "12px 24px",
+  fontSize: 13,
+  lineHeight: "24px",
+  letterSpacing: ".08em",
+  textTransform: "uppercase",
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+  color: "color-mix(in srgb, var(--color-text) 70%, transparent)",
+  fontFeatureSettings: "'tnum' 1",
+};
+
 export default function Services() {
   return (
-    <section id="services" className="relative min-h-screen py-20 md:py-28">
-      <div className="mx-auto max-w-6xl px-5">
-        <SectionTag label="What we do" />
-        <SectionTitle>
-          Everything your business needs online, <span className="text-fog">in one place.</span>
-        </SectionTitle>
+    <section
+      id="services"
+      style={{ borderTop: "1px solid var(--color-divider)", background: "var(--color-surface)" }}
+    >
+      <div style={{ maxWidth: 1240, margin: "0 auto", padding: "88px clamp(20px,5vw,72px)" }}>
+        <Reveal>
+          <Kicker>02 · What we do</Kicker>
+          <h2
+            style={{
+              fontFamily: "var(--font-heading)",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: ".01em",
+              fontSize: "clamp(32px,4vw,56px)",
+              lineHeight: 1.02,
+              margin: 0,
+              maxWidth: "24ch",
+            }}
+          >
+            Everything your business needs online,{" "}
+            <span style={{ color: "color-mix(in srgb, var(--color-text) 45%, transparent)" }}>
+              in one place.
+            </span>
+          </h2>
+        </Reveal>
 
-        <div className="mt-14 grid gap-5 md:grid-cols-2">
-          {SERVICES.map((s, i) => (
-            <Reveal key={s.title} delay={i * 0.08}>
-              <div className="interactive-card group ticks relative h-full overflow-hidden rounded-xl border border-line bg-ink-2/85 p-6 transition-colors duration-300 hover:border-dart/40">
-                <div className="pointer-events-none absolute -top-24 -right-24 h-48 w-48 rounded-full bg-dart/0 blur-3xl transition-all duration-500 group-hover:bg-dart/8" />
-                <div className="flex items-start justify-between gap-6">
-                  <div>
-                    <h3 className="text-2xl font-semibold tracking-tight">{s.title}</h3>
-                    <p className="mt-3 max-w-sm text-sm leading-relaxed text-fog">{s.desc}</p>
-                  </div>
-                </div>
-                <div className="mt-6 h-36">{s.visual}</div>
+        {/* the drawn plate */}
+        <Reveal className="blueprint" style={{ marginTop: 52 }}>
+          <Marks />
+          <header
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "stretch",
+              borderBottom: "1px solid var(--color-divider)",
+            }}
+          >
+            <span
+              style={{
+                flex: 1,
+                minWidth: "16ch",
+                padding: "12px 24px",
+                fontSize: 13,
+                lineHeight: "24px",
+                letterSpacing: ".08em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+              }}
+            >
+              DevDart — service schedule
+            </span>
+            <span style={metaCell}>Rev A</span>
+            <span style={metaCell}>04 items</span>
+          </header>
+
+          {ROWS.map((row, i) => (
+            <div
+              key={row.n}
+              className="dd-svc-row"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "84px 56px 1fr",
+                gap: "0 20px",
+                alignItems: "start",
+                padding: "26px 24px",
+                borderBottom: i < ROWS.length - 1 ? "1px solid var(--color-divider)" : "none",
+                transition: "background .3s",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 13,
+                  letterSpacing: ".1em",
+                  fontWeight: 600,
+                  color: "var(--accent-text)",
+                  fontFeatureSettings: "'tnum' 1",
+                }}
+              >
+                {row.n}
+              </span>
+              <span className="dd-svc-icon" style={{ display: "inline-flex", color: "var(--color-accent)" }}>
+                <row.Icon />
+              </span>
+              <div>
+                <h3
+                  className="dd-svc-title"
+                  style={{
+                    fontFamily: "var(--font-heading)",
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: ".01em",
+                    fontSize: 27,
+                    margin: 0,
+                    transition: "color .3s",
+                  }}
+                >
+                  {row.title}
+                </h3>
+                <p
+                  style={{
+                    fontSize: 15,
+                    lineHeight: 1.6,
+                    margin: "8px 0 0",
+                    maxWidth: "64ch",
+                    color: "color-mix(in srgb, var(--color-text) 76%, transparent)",
+                  }}
+                >
+                  {row.desc}
+                </p>
               </div>
-            </Reveal>
+            </div>
           ))}
-        </div>
+        </Reveal>
       </div>
     </section>
   );
