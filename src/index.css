@@ -15,10 +15,10 @@
 :root {
   --font-heading: "Barlow Condensed", ui-sans-serif, system-ui, sans-serif;
 
-  --color-bg: #f2f2f3;
-  --color-surface: #e9e9ea;
+  --color-bg: #e7e8ea;
+  --color-surface: #dbdce0;
   --color-text: #1d1f20;
-  --color-divider: color-mix(in srgb, #1d1f20 16%, transparent);
+  --color-divider: color-mix(in srgb, #1d1f20 18%, transparent);
 
   --color-accent: #1f7f95; /* solid fills that carry --color-bg text */
   --color-accent-100: #eafdff;
