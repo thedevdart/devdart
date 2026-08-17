@@ -13,8 +13,14 @@ import { createClient } from "@supabase/supabase-js";
     data: the public can only INSERT bookings, and only a signed-in admin can
     read them.                                                              */
 
-const url = import.meta.env.VITE_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+/*  Accept either our own VITE_* vars (local `.env`) or the NEXT_PUBLIC_* vars
+    the Supabase↔Vercel integration provisions automatically.                */
+const env = import.meta.env;
+const url = env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL;
+const anonKey =
+  env.VITE_SUPABASE_ANON_KEY ||
+  env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 export const isSupabaseConfigured = Boolean(url && anonKey);
 
