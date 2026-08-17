@@ -1,11 +1,10 @@
 /*  Scheduling config + date helpers shared by the booking modal and admin.  */
 
 // 30-minute call slots offered each working day (24h "HH:MM" keys).
+// Evening only — calls run after 6 PM.
 export const TIME_SLOTS = [
-  "10:00", "10:30", "11:00", "11:30",
-  "12:00", "12:30", "14:00", "14:30",
-  "15:00", "15:30", "16:00", "16:30",
-  "17:00", "17:30",
+  "18:00", "18:30", "19:00", "19:30",
+  "20:00", "20:30", "21:00", "21:30",
 ];
 
 // Days the team takes calls (0 = Sun … 6 = Sat). Mon–Sat here.
