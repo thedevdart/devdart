@@ -36,7 +36,7 @@ export default function Hero() {
       style={{
         maxWidth: 1240,
         margin: "0 auto",
-        padding: "152px clamp(20px,5vw,72px) 84px",
+        padding: "112px clamp(20px,5vw,72px) 84px",
       }}
     >
       <div
